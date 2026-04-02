@@ -2,8 +2,7 @@ import API, { clearAuthToken, getAuthToken, setAuthToken } from "./axios";
 
 const PROFILE_KEY = "currentUserProfile";
 
-const getTokenFromResponse = (data) =>
-  data?.access_token || data?.token || data?.data?.access_token || data?.data?.token;
+// ================= ERROR HANDLING =================
 
 const normalizeApiError = (error, fallbackMessage) => {
   const message =
@@ -14,6 +13,8 @@ const normalizeApiError = (error, fallbackMessage) => {
 
   return new Error(message);
 };
+
+// ================= PROFILE STORAGE =================
 
 const setStoredProfile = (profile) => {
   if (profile) {
@@ -30,73 +31,104 @@ export const getStoredProfile = () => {
   }
 };
 
+// ================= LOGIN =================
+
 export const loginUser = async ({ email, password }) => {
   try {
-    const response = await API.post("/auth/login", { email, password });
-    const token = getTokenFromResponse(response.data);
+    const response = await API.post("/users/login", { email, password });
 
+    const token = response.data.token;
     if (!token) {
       throw new Error("Token not received from server");
     }
 
     setAuthToken(token);
-    const profileResponse = await API.get("/auth/profile", { auth: true });
-    setStoredProfile(profileResponse.data);
 
-    return { ...response.data, profile: profileResponse.data };
+    // If your backend sends user data, store it
+    if (response.data.data?.user) {
+      setStoredProfile(response.data.data.user);
+    }
+
+    return response.data;
   } catch (error) {
     throw normalizeApiError(error, "Login failed. Please try again.");
   }
 };
 
-export const registerUser = async ({ name, email, password, avatar }) => {
+// ================= REGISTER =================
+
+export const registerUser = async ({
+  name,
+  email,
+  password,
+  passwordConfirm,
+}) => {
   try {
-    await API.post("/users/", {
+    const response = await API.post("/users/signup", {
       name,
       email,
       password,
-      avatar,
+      passwordConfirm : password,
     });
 
-    const loginResponse = await API.post("/auth/login", { email, password });
-    const token = getTokenFromResponse(loginResponse.data);
+    const token = response.data.token;
 
     if (!token) {
-      throw new Error("Registration succeeded but login token was not returned");
+      throw new Error("Registration succeeded but token not returned");
     }
 
     setAuthToken(token);
-    const profileResponse = await API.get("/auth/profile", { auth: true });
-    setStoredProfile(profileResponse.data);
 
-    return { ...loginResponse.data, profile: profileResponse.data };
+    // Store user if available
+    if (response.data.data?.user) {
+      setStoredProfile(response.data.data.user);
+    }
+
+    return response.data;
   } catch (error) {
     throw normalizeApiError(error, "Registration failed. Please try again.");
   }
 };
 
-export const requestPasswordReset = async (email) => {
+// ================= PROFILE (OPTIONAL) =================
+
+// Only use this IF you have a protected route like /users/me
+export const getMyProfile = async () => {
   try {
-    const response = await API.post("/auth/forgot-password", { email });
+    const response = await API.get("/users/me", { auth: true });
+    console.log("getMyProfile response:", response);
+    if (response.data.data?.user) {
+      setStoredProfile(response.data.data.user);
+    }
     return response.data;
   } catch (error) {
-    throw normalizeApiError(error, "Unable to send reset link right now.");
+    console.error("getMyProfile error:", error);
+    throw normalizeApiError(error, "Unable to load your profile.");
   }
 };
 
-export const getMyProfile = async () => {
-  try {
-    const response = await API.get("/auth/profile", { auth: true });
-    setStoredProfile(response.data);
-    return response.data;
-  } catch (error) {
-    throw normalizeApiError(error, "Unable to load your profile right now.");
-  }
-};
+// ================= LOGOUT =================
 
 export const logoutUser = () => {
   clearAuthToken();
   localStorage.removeItem(PROFILE_KEY);
 };
+
+// ================= PASSWORD RESET =================
+
+export const requestPasswordReset = async (email) => {
+  if (!email) {
+    throw new Error("Email is required for password reset.");
+  }
+
+  try {
+    const response = await API.post("/users/forgotPassword", { email });
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error, "Unable to send reset link. Please try again.");
+  }
+};
+
+// ================= AUTH CHECK =================
 
 export const isAuthenticated = () => Boolean(getAuthToken());

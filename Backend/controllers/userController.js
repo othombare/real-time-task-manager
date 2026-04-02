@@ -2,6 +2,17 @@ const fs = require('fs');
 const User= require('./../models/userModel');
 const catchAsync= require('./../utils/catchAsync');
 
+//Get current user details
+exports.getMe = catchAsync(async (req, res, next) => {
+    const user = req.user;
+    res.status(200).json({
+        status: 'success',
+        data: {
+            user
+        }
+    });
+});
+
 //USERS
 //const users=JSON.parse(fs.readFileSync(`${__dirname}/dev-data/data/users.json`));
 //To get all the users

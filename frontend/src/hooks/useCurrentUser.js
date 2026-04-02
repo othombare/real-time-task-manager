@@ -10,12 +10,16 @@ export function useCurrentUser() {
 
     const loadProfile = async () => {
       try {
+        console.log("useCurrentUser: Starting profile load");
         const data = await getMyProfile();
+        console.log("useCurrentUser: Profile loaded successfully:", data);
 
         if (!ignore) {
-          setProfile(data);
+          // Extract the user from the response
+          setProfile(data.data?.user || getStoredProfile());
         }
-      } catch {
+      } catch (error) {
+        console.error("useCurrentUser: Error loading profile:", error);
         if (!ignore) {
           setProfile((current) => current);
         }

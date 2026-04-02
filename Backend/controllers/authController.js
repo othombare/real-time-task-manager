@@ -57,11 +57,32 @@ exports.login = catchAsync(async (req, res, next) => {
     const token = signToken(user._id);
     res.status(200).json({
         status:'success',
-        token
+        token,
+        data: {
+            user: user
+        }
     });
 });
 
 
+
+exports.forgotPassword = catchAsync(async (req, res, next) => {
+    const { email } = req.body;
+    if (!email) {
+        return next(new AppError('Please provide your email address.', 400));
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+        return next(new AppError('There is no user with that email address.', 404));
+    }
+
+    // TODO: generate reset token, store, and send email. For now we return success.
+    res.status(200).json({
+        status: 'success',
+        message: 'If your email is registered, a password reset link has been sent.'
+    });
+});
 
 exports.protect = catchAsync(async (req, res, next) => {
     //1) Getting token and check if it's there
@@ -81,5 +102,12 @@ exports.protect = catchAsync(async (req, res, next) => {
     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
     console.log(decoded);
 
+    //3) Get user from token
+    const currentUser = await User.findById(decoded.id);
+    if (!currentUser) {
+        return next(new AppError('The user belonging to this token does no longer exist.', 401));
+    }
+
+    req.user = currentUser;
     next();
 });

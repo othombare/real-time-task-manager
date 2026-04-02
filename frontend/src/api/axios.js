@@ -1,13 +1,21 @@
 const TOKEN_KEY = "token";
-const DEFAULT_BASE_URL = "https://api.escuelajs.co/api/v1";
+const BASE_URL = "http://localhost:3000/api/v1";
 
-const normalizeBaseUrl = (url) => (url || DEFAULT_BASE_URL).replace(/\/+$/, "");
+// Ensure no trailing slash
+const normalizeBaseUrl = (url) => url.replace(/\/+$/, "");
 
+// Build full API URL
 const buildUrl = (path) => {
-  const baseUrl = normalizeBaseUrl(import.meta.env.VITE_API_URL);
+  const baseUrl = normalizeBaseUrl(BASE_URL);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${baseUrl}${normalizedPath}`;
+  
+  const fullUrl = `${baseUrl}${normalizedPath}`;
+  console.log("API CALL:", fullUrl); // 🔥 helpful for debugging
+
+  return fullUrl;
 };
+
+// ================= TOKEN HANDLING =================
 
 export const getAuthToken = () => localStorage.getItem(TOKEN_KEY);
 
@@ -21,11 +29,15 @@ export const clearAuthToken = () => {
   localStorage.removeItem(TOKEN_KEY);
 };
 
+// ================= ERROR HANDLING =================
+
 const createError = (message, status, data) => {
   const error = new Error(message);
   error.response = { data, status };
   return error;
 };
+
+// ================= CORE REQUEST FUNCTION =================
 
 async function request(path, options = {}) {
   const {
@@ -49,11 +61,15 @@ async function request(path, options = {}) {
     ...(body === undefined
       ? {}
       : {
-          body: isFormData || typeof body === "string" ? body : JSON.stringify(body),
+          body:
+            isFormData || typeof body === "string"
+              ? body
+              : JSON.stringify(body),
         }),
     ...restOptions,
   });
 
+  // Handle empty response
   if (response.status === 204) {
     return { data: null, status: response.status };
   }
@@ -63,6 +79,7 @@ async function request(path, options = {}) {
     ? await response.json()
     : await response.text();
 
+  // Handle errors
   if (!response.ok) {
     const message =
       (typeof data === "object" && (data?.message || data?.error)) ||
@@ -75,12 +92,23 @@ async function request(path, options = {}) {
   return { data, status: response.status };
 }
 
+// ================= API METHODS =================
+
 const API = {
-  get: (path, options = {}) => request(path, { ...options, method: "GET" }),
-  post: (path, body, options = {}) => request(path, { ...options, method: "POST", body }),
-  put: (path, body, options = {}) => request(path, { ...options, method: "PUT", body }),
-  patch: (path, body, options = {}) => request(path, { ...options, method: "PATCH", body }),
-  delete: (path, options = {}) => request(path, { ...options, method: "DELETE" }),
+  get: (path, options = {}) =>
+    request(path, { ...options, method: "GET" }),
+
+  post: (path, body, options = {}) =>
+    request(path, { ...options, method: "POST", body }),
+
+  put: (path, body, options = {}) =>
+    request(path, { ...options, method: "PUT", body }),
+
+  patch: (path, body, options = {}) =>
+    request(path, { ...options, method: "PATCH", body }),
+
+  delete: (path, options = {}) =>
+    request(path, { ...options, method: "DELETE" }),
 };
 
 export default API;
