@@ -1,22 +1,138 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-
-import Login from "../pages/Login";
-import Register from "../pages/Register";
-import Dashboard from "../pages/Dashboard";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import Home from "../Pages/Dashboard/Home";
+import Login from "../Pages/Auth/Login";
+import Register from "../Pages/Auth/Register";
+import ForgotPassword from "../Pages/Auth/ForgotPassword";
+import Tasks from "../Pages/Tasks/Tasks";
+import Projects from "../Pages/Projects/Projects";
+import PerToDo from "../Pages/PerToDo";
+import TeamMembers from "../Pages/TeamMembers/TeamMembers";
+import Analytics from "../Pages/Analytics/Analytics";
+import Message from "../Pages/Message/Message";
+import Settings from "../Pages/Settings/Settings";
+import Notifications from "../Pages/Notifications/Notifications";
+import MyProfile from "../Pages/MyProfile/MyProfile";
+import ProtectedRoute from "./ProtectedRoute";
+import PublicRoute from "./PublicRoute";
 
 const AppRouter = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Default route */}
-        <Route path="/" element={<Navigate to="/login" />} />
-
-        {/* Public routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-
-        {/* Protected route */}
-        <Route path="/dashboard" element={<Dashboard />} />
+        {/* Public auth screens */}
+        <Route
+          path="/"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicRoute>
+              <Register />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicRoute>
+              <ForgotPassword />
+            </PublicRoute>
+          }
+        />
+        {/* Protected workspace screens */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tasks"
+          element={
+            <ProtectedRoute>
+              <Tasks />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects"
+          element={
+            <ProtectedRoute>
+              <Projects />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team-members"
+          element={
+            <ProtectedRoute>
+              <TeamMembers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <Analytics />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/message"
+          element={
+            <ProtectedRoute>
+              <Message />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-profile"
+          element={
+            <ProtectedRoute>
+              <MyProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/personal-todo"
+          element={
+            <ProtectedRoute>
+              <PerToDo />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
