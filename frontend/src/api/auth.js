@@ -44,9 +44,10 @@ export const loginUser = async ({ email, password }) => {
 
     setAuthToken(token);
 
-    // If your backend sends user data, store it
-    if (response.data.data?.user) {
-      setStoredProfile(response.data.data.user);
+    // Store user profile immediately for instant authentication
+    const userProfile = response.data.data?.user;
+    if (userProfile) {
+      setStoredProfile(userProfile);
     }
 
     return response.data;
@@ -79,9 +80,10 @@ export const registerUser = async ({
 
     setAuthToken(token);
 
-    // Store user if available
-    if (response.data.data?.user) {
-      setStoredProfile(response.data.data.user);
+    // Store user profile immediately for instant authentication
+    const userProfile = response.data.data?.user;
+    if (userProfile) {
+      setStoredProfile(userProfile);
     }
 
     return response.data;

@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react";
-import { getMyProfile, getStoredProfile } from "../api/auth";
+import { getMyProfile, getStoredProfile, isAuthenticated } from "../api/auth";
 
 export function useCurrentUser() {
   const [profile, setProfile] = useState(() => getStoredProfile());
-  const [loading, setLoading] = useState(!getStoredProfile());
+  const [loading, setLoading] = useState(() => {
+    // Only loading if we have a token but no stored profile
+    return isAuthenticated() && !getStoredProfile();
+  });
 
   useEffect(() => {
+    // Only try to load profile if we have a token
+    if (!isAuthenticated()) {
+      setLoading(false);
+      return;
+    }
+
     let ignore = false;
 
     const loadProfile = async () => {
@@ -16,12 +25,14 @@ export function useCurrentUser() {
 
         if (!ignore) {
           // Extract the user from the response
-          setProfile(data.data?.user || getStoredProfile());
+          const userProfile = data.data?.user;
+          setProfile(userProfile);
         }
       } catch (error) {
         console.error("useCurrentUser: Error loading profile:", error);
         if (!ignore) {
-          setProfile((current) => current);
+          // If profile loading fails (token expired/invalid), clear profile
+          setProfile(null);
         }
       } finally {
         if (!ignore) {

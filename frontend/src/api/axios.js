@@ -86,6 +86,12 @@ async function request(path, options = {}) {
       (typeof data === "string" && data) ||
       `Request failed with status ${response.status}`;
 
+    // If unauthorized and we were using auth, clear the token
+    if (response.status === 401 && auth) {
+      clearAuthToken();
+      localStorage.removeItem("currentUserProfile");
+    }
+
     throw createError(message, response.status, data);
   }
 
