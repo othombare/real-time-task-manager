@@ -5,6 +5,7 @@ import Register from "../Pages/Auth/Register";
 import ForgotPassword from "../Pages/Auth/ForgotPassword";
 import Tasks from "../Pages/Tasks/Tasks";
 import Projects from "../Pages/Projects/Projects";
+import ProjectBoard from "../Pages/Projects/ProjectBoard";
 import PerToDo from "../Pages/PerToDo";
 import TeamMembers from "../Pages/TeamMembers/TeamMembers";
 import Analytics from "../Pages/Analytics/Analytics";
@@ -82,6 +83,14 @@ const AppRouter = () => {
           element={
             <ProtectedRoute>
               <Projects />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectSlug"
+          element={
+            <ProtectedRoute>
+              <ProjectBoard />
             </ProtectedRoute>
           }
         />

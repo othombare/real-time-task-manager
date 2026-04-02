@@ -1,31 +1,12 @@
-import { BriefcaseBusinessIcon, FolderKanbanIcon, SparklesIcon, TrendingUpIcon } from "lucide-react";
+import { ArrowRightIcon, BriefcaseBusinessIcon, FolderKanbanIcon, TrendingUpIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
-
-const projects = [
-  {
-    id: 1,
-    title: "TaskVue Web App",
-    description: "Frontend dashboard build with auth, profile, and multi-page navigation.",
-    status: "On Track",
-    stage: "Sprint 3",
-  },
-  {
-    id: 2,
-    title: "Client Onboarding Revamp",
-    description: "Improve conversion, simplify forms, and reduce drop-off during setup.",
-    status: "Planning",
-    stage: "Discovery",
-  },
-  {
-    id: 3,
-    title: "Analytics Module",
-    description: "Prepare charts and trend reporting views for stakeholder review.",
-    status: "In Progress",
-    stage: "Build",
-  },
-];
+import { useProjects } from "./useProjects";
 
 function Projects() {
+  const navigate = useNavigate();
+  const { projects } = useProjects();
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -43,8 +24,8 @@ function Projects() {
               <BriefcaseBusinessIcon size={18} />
             </div>
             <div>
-              <p className="text-sm font-semibold">7 active projects</p>
-              <p className="text-xs text-muted-foreground">3 shipping this month</p>
+              <p className="text-sm font-semibold">{projects.length} active projects</p>
+              <p className="text-xs text-muted-foreground">Open any project to manage its board</p>
             </div>
           </div>
         </section>
@@ -52,8 +33,13 @@ function Projects() {
         <section className="grid gap-5 lg:grid-cols-[1.5fr_0.8fr]">
           <div className="space-y-4">
             {projects.map((project) => (
-              <article key={project.id} className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-                <div className="space-y-2">
+              <button
+                key={project.id}
+                type="button"
+                onClick={() => navigate(`/projects/${project.slug}`)}
+                className="w-full rounded-3xl border border-border bg-card p-5 text-left shadow-sm transition hover:border-primary/20 hover:shadow-md"
+              >
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
                       {project.stage}
@@ -64,8 +50,14 @@ function Projects() {
                   </div>
                   <h2 className="text-lg font-semibold">{project.title}</h2>
                   <p className="text-sm leading-6 text-muted-foreground">{project.description}</p>
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                      Open board
+                    </span>
+                    <ArrowRightIcon size={16} className="text-primary" />
+                  </div>
                 </div>
-              </article>
+              </button>
             ))}
           </div>
 
@@ -99,10 +91,10 @@ function Projects() {
             <div className="rounded-3xl border border-primary/20 bg-primary/5 p-5 shadow-sm">
               <div className="flex items-center gap-3 text-primary">
                 <FolderKanbanIcon size={18} />
-                <h3 className="font-semibold">Next Layer</h3>
+                <h3 className="font-semibold">Boards Ready</h3>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Later we can add project creation, owners, milestones, and health metrics here.
+                Open any project card to see its Jira-style board with `To Do`, `In Progress`, and `Done` columns.
               </p>
             </div>
           </aside>
