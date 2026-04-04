@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Input from "../../components/Input";
 import img from "../../assets/forgotpass-bg.png";
-import { resetPassword } from "../../api/auth";
+import { getLastProtectedRoute, resetPassword } from "../../api/auth";
 import "../../styles/auth.css";
 
 const ResetPassword = () => {
@@ -53,7 +53,7 @@ const ResetPassword = () => {
         password: form.password,
         passwordConfirm: form.passwordConfirm,
       });
-      navigate("/dashboard", { replace: true });
+      navigate(getLastProtectedRoute(), { replace: true });
     } catch (error) {
       setStatusMessage(
         error.message || "Unable to reset password. Please try again."

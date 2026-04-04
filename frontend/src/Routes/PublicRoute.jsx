@@ -1,11 +1,12 @@
 import { Navigate } from "react-router-dom";
+import { getLastProtectedRoute } from "../api/auth";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 
-const PublicRoute = ({ children }) => {
+const PublicRoute = ({ children, redirectAuthenticated = true }) => {
   const { profile, loading } = useCurrentUser();
 
   // Show loading while checking authentication
-  if (loading) {
+  if (loading && redirectAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -17,11 +18,11 @@ const PublicRoute = ({ children }) => {
   }
 
   // If we have a valid profile, redirect to dashboard
-  if (profile) {
-    return <Navigate to="/dashboard" replace />;
+  if (profile && redirectAuthenticated) {
+    return <Navigate to={getLastProtectedRoute()} replace />;
   }
 
-  // If no profile, show the public content (login/register)
+  // If no redirect is needed, always show the public content.
   return children;
 };
 

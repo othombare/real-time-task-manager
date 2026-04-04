@@ -48,19 +48,11 @@ const AppRouter = () => {
         />
         <Route
           path="/forgot-password"
-          element={
-            <PublicRoute>
-              <ForgotPassword />
-            </PublicRoute>
-          }
+          element={<ForgotPassword />}
         />
         <Route
           path="/reset-password/:token"
-          element={
-            <PublicRoute>
-              <ResetPassword />
-            </PublicRoute>
-          }
+          element={<ResetPassword />}
         />
         {/* Protected workspace screens */}
         <Route

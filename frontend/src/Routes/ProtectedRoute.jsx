@@ -1,8 +1,19 @@
-import { Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { setLastProtectedRoute } from "../api/auth";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 
 const ProtectedRoute = ({ children }) => {
   const { profile, loading } = useCurrentUser();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!loading && profile) {
+      setLastProtectedRoute(
+        `${location.pathname}${location.search}${location.hash}`
+      );
+    }
+  }, [loading, location.hash, location.pathname, location.search, profile]);
 
   // Show loading while validating authentication
   if (loading) {

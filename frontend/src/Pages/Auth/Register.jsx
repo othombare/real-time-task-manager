@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/Input";
 import registerbg from "../../assets/register-bg.png";
-import { registerUser } from "../../api/auth";
+import { getLastProtectedRoute, registerUser } from "../../api/auth";
 import "../../styles/auth.css";
 
 const Register = () => {
@@ -45,7 +45,7 @@ const Register = () => {
       const token = data?.access_token || data?.token;
 
       if (token) {
-        navigate("/dashboard", { replace: true });
+        navigate(getLastProtectedRoute(), { replace: true });
       } else {
         setStatusMessage("Registration succeeded. Please log in.");
         navigate("/login", { replace: true });

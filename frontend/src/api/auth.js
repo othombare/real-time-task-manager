@@ -1,6 +1,7 @@
 import API, { clearAuthToken, getAuthToken, setAuthToken } from "./axios";
 
 const PROFILE_KEY = "currentUserProfile";
+const LAST_PROTECTED_ROUTE_KEY = "lastProtectedRoute";
 
 // ================= ERROR HANDLING =================
 
@@ -29,6 +30,19 @@ export const getStoredProfile = () => {
   } catch {
     return null;
   }
+};
+
+export const setLastProtectedRoute = (path) => {
+  if (!path || !path.startsWith("/")) {
+    return;
+  }
+
+  localStorage.setItem(LAST_PROTECTED_ROUTE_KEY, path);
+};
+
+export const getLastProtectedRoute = () => {
+  const storedRoute = localStorage.getItem(LAST_PROTECTED_ROUTE_KEY);
+  return storedRoute?.startsWith("/") ? storedRoute : "/dashboard";
 };
 
 // ================= LOGIN =================

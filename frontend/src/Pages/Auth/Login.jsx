@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/Input";
 import loginBg from "../../assets/login-bg.png";
-import { loginUser } from "../../api/auth";
+import { getLastProtectedRoute, loginUser } from "../../api/auth";
 import "../../styles/auth.css";
 
 const Login = () => {
@@ -43,7 +43,7 @@ const Login = () => {
         return;
       }
 
-      navigate("/dashboard", { replace: true });
+      navigate(getLastProtectedRoute(), { replace: true });
     } catch (error) {
       const status = error.message.toLowerCase();
 
