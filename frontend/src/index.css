@@ -27,25 +27,25 @@
   }
 
   .dark {
-    --background: 224 71.4% 4.1%;
-    --foreground: 210 20% 98%;
-    --card: 224 71.4% 4.1%;
-    --card-foreground: 210 20% 98%;
-    --popover: 224 71.4% 4.1%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 222 30% 8%;
+    --foreground: 210 22% 95%;
+    --card: 222 24% 11%;
+    --card-foreground: 210 22% 95%;
+    --popover: 222 24% 10%;
+    --popover-foreground: 210 22% 95%;
+    --primary: 213 88% 62%;
+    --primary-foreground: 222 30% 10%;
+    --secondary: 222 18% 16%;
+    --secondary-foreground: 210 18% 92%;
+    --muted: 222 18% 15%;
+    --muted-foreground: 215 14% 70%;
+    --accent: 222 18% 18%;
+    --accent-foreground: 210 18% 92%;
+    --destructive: 0 70% 42%;
     --destructive-foreground: 210 20% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --border: 222 16% 20%;
+    --input: 222 16% 18%;
+    --ring: 213 88% 62%;
   }
 }
 
@@ -56,6 +56,58 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+}
+
+@layer base {
+  .dark {
+    color-scheme: dark;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(circle at top, rgba(59, 130, 246, 0.08), transparent 28%),
+      linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(8, 15, 29, 1));
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .dark .bg-slate-50 {
+    background-color: hsl(222 18% 14%) !important;
+  }
+
+  .dark .bg-slate-100 {
+    background-color: hsl(222 16% 18%) !important;
+  }
+
+  .dark .bg-white {
+    background-color: hsl(222 22% 13%) !important;
+  }
+
+  .dark .bg-slate-50\/50 {
+    background-color: hsl(222 18% 14% / 0.55) !important;
+  }
+
+  .dark .text-slate-600 {
+    color: hsl(215 15% 72%) !important;
+  }
+
+  .dark .text-slate-700,
+  .dark .text-slate-800 {
+    color: hsl(210 16% 84%) !important;
+  }
+
+  .dark .from-slate-100,
+  .dark .to-slate-200 {
+    --tw-gradient-from: hsl(222 18% 16%) var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: hsl(222 16% 20% / 0) var(--tw-gradient-to-position) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+  }
+
+  .dark .to-slate-200 {
+    --tw-gradient-to: hsl(222 16% 20%) var(--tw-gradient-to-position) !important;
   }
 }
 

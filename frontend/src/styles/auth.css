@@ -193,6 +193,62 @@ body {
   color: #dc2626;
 }
 
+.dark body {
+  background:
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.1), transparent 26%),
+    linear-gradient(180deg, #0b1220, #111827);
+}
+
+.dark .auth-page-wrapper {
+  background: transparent;
+}
+
+.dark .auth-container {
+  background: rgba(17, 24, 39, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 28px 70px rgba(2, 6, 23, 0.55);
+}
+
+.dark .auth-right {
+  color: #e5edf8;
+}
+
+.dark .auth-right h2 {
+  color: #f8fafc;
+}
+
+.dark .auth-left h2 {
+  color: #60a5fa;
+}
+
+.dark .auth-left p,
+.dark .auth-links,
+.dark .auth-links p,
+.dark .auth-message {
+  color: #94a3b8;
+}
+
+.dark .auth-links a {
+  color: #e2e8f0;
+}
+
+.dark .auth-links a:hover {
+  color: #60a5fa;
+}
+
+.dark .auth-right button {
+  background: #2563eb;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.25);
+}
+
+.dark .auth-right button:hover {
+  background: #3b82f6;
+}
+
+.dark .auth-right button:disabled {
+  background: #334155;
+}
+
 /* ---------- RESPONSIVE AUTH ---------- */
 @media (max-width: 768px) {
   .auth-container {
