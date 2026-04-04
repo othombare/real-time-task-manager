@@ -8,13 +8,15 @@ import {
   SearchIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { logoutUser } from "../../api/auth";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { logout } from "../../store/authSlice";
+import { useAppDispatch } from "../../store/hooks";
 import CreateProjectModal from "../Projects/CreateProjectModal";
 import { useProjects } from "../Projects/useProjects";
 
 export function Header() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { profile } = useCurrentUser();
   const { createProject } = useProjects();
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -28,7 +30,7 @@ export function Header() {
 
   const handleLogout = () => {
       // Clear the local auth session before sending the user back to login.
-      logoutUser();
+      dispatch(logout());
       navigate("/login", { replace: true });
     };
 

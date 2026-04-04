@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
 import { ImageIcon, LogOutIcon, MailIcon, ShieldCheckIcon, SparklesIcon, UserRoundIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
-import { getMyProfile, logoutUser } from "../../api/auth";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { logout } from "../../store/authSlice";
+import { useAppDispatch } from "../../store/hooks";
 
 const profileStats = [
   { label: "Projects", value: "12" },
@@ -12,50 +13,19 @@ const profileStats = [
 
 function MyProfile() {
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let ignore = false;
-
-    const loadProfile = async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const data = await getMyProfile();
-
-        if (!ignore) {
-          setProfile(data);
-        }
-      } catch (err) {
-        if (!ignore) {
-          setError(err.message || "Unable to load your profile right now.");
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadProfile();
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
+  const dispatch = useAppDispatch();
+  const { profile, loading } = useCurrentUser();
 
   const handleLogout = () => {
     // Clear the local auth session before sending the user back to login.
-    logoutUser();
+    dispatch(logout());
     navigate("/login", { replace: true });
   };
 
   const displayName = profile?.name || "Loading profile...";
   const displayEmail = profile?.email || "No email available";
   const displayRole = profile?.role || "Workspace Member";
-  const displayAvatar = profile?.avatar;
+  const displayAvatar = profile?.avatar || profile?.photo;
   const initials = (profile?.name || "TV")
     .split(" ")
     .map((part) => part[0])
@@ -88,7 +58,6 @@ function MyProfile() {
                     ? "Loading your account details from the fake auth API."
                     : "This profile is now connected to the fake auth API session you used during login."}
                 </p>
-                {error && <p className="text-sm font-medium text-rose-600">{error}</p>}
               </div>
             </div>
 

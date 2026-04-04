@@ -2,16 +2,19 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Input from "../../components/Input";
 import img from "../../assets/forgotpass-bg.png";
-import { getLastProtectedRoute, resetPassword } from "../../api/auth";
+import { getLastProtectedRoute } from "../../api/auth";
+import { resetPasswordSession } from "../../store/authSlice";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import "../../styles/auth.css";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { token } = useParams();
   const [form, setForm] = useState({ password: "", passwordConfirm: "" });
   const [errors, setErrors] = useState({});
   const [statusMessage, setStatusMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const loading = useAppSelector((state) => state.auth.loading);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -46,20 +49,17 @@ const ResetPassword = () => {
     }
 
     try {
-      setLoading(true);
       setStatusMessage("");
-      await resetPassword({
+      await dispatch(resetPasswordSession({
         token,
         password: form.password,
         passwordConfirm: form.passwordConfirm,
-      });
+      })).unwrap();
       navigate(getLastProtectedRoute(), { replace: true });
     } catch (error) {
       setStatusMessage(
         error.message || "Unable to reset password. Please try again."
       );
-    } finally {
-      setLoading(false);
     }
   };
 
