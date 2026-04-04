@@ -180,6 +180,19 @@ body {
   font-weight: 500;
 }
 
+.auth-message {
+  text-align: center;
+  font-size: 14px;
+}
+
+.auth-message.success {
+  color: #15803d;
+}
+
+.auth-message.error {
+  color: #dc2626;
+}
+
 /* ---------- RESPONSIVE AUTH ---------- */
 @media (max-width: 768px) {
   .auth-container {

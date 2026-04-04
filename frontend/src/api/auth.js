@@ -131,6 +131,40 @@ export const requestPasswordReset = async (email) => {
   }
 };
 
+export const resetPassword = async ({ token, password, passwordConfirm }) => {
+  if (!token) {
+    throw new Error("Reset token is missing.");
+  }
+
+  if (!password || !passwordConfirm) {
+    throw new Error("Password and confirm password are required.");
+  }
+
+  try {
+    const response = await API.patch(`/users/resetPassword/${token}`, {
+      password,
+      passwordConfirm,
+    });
+
+    const authToken = response.data.token;
+    if (authToken) {
+      setAuthToken(authToken);
+    }
+
+    const userProfile = response.data.data?.user;
+    if (userProfile) {
+      setStoredProfile(userProfile);
+    }
+
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(
+      error,
+      "Unable to reset password. Please try again."
+    );
+  }
+};
+
 // ================= AUTH CHECK =================
 
 export const isAuthenticated = () => Boolean(getAuthToken());

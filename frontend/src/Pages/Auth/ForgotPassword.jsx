@@ -8,23 +8,30 @@ import "../../styles/auth.css";
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [resetUrl, setResetUrl] = useState("");
+  const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsError(false);
+    setResetUrl("");
 
     if (!email) {
       setMessage("Please enter your email");
+      setIsError(true);
       return;
     }
 
     try {
       setLoading(true);
       setMessage("Sending reset link...");
-      await requestPasswordReset(email);
-      setMessage("Password reset link sent to your email.");
+      const data = await requestPasswordReset(email);
+      setMessage(data.message || "Password reset link sent to your email.");
+      setResetUrl(data.resetUrl || "");
     } catch (error) {
       setMessage(error.message || "Unable to send reset link right now.");
+      setIsError(true);
     } finally {
       setLoading(false);
     }
@@ -55,8 +62,17 @@ const ForgotPassword = () => {
         </form>
 
         {message && (
-          <p style={{ marginTop: "10px", color: message.includes("Please") ? "red" : "green" }}>
+          <p
+            className={`auth-message ${isError ? "error" : "success"}`}
+            style={{ marginTop: "10px" }}
+          >
             {message}
+          </p>
+        )}
+
+        {resetUrl && (
+          <p className="auth-message success" style={{ marginTop: "8px" }}>
+            Development reset link: <Link to={resetUrl.replace("http://localhost:5173", "")}>Open reset page</Link>
           </p>
         )}
 
