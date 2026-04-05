@@ -6,7 +6,7 @@ app.set('query parser', 'extended');
 const morgan= require('morgan');
 
 const userRouter= require(`./routes/userRoutes`)
-
+const globalErrorHandler = require('./controllers/errorController');
 
 //1. MIDDLEWARE
 //app.use(morgan('short')); //third party middleware 
@@ -47,15 +47,8 @@ app.use((req, res, next)=>{
 
 app.use('/api/v1/users', userRouter);
 
-//For handling errors globally
-app.use((err, req, res, next) => {
-  console.log('ERROR 💥', err);
-
-  res.status(err.statusCode || 400).json({
-    status: 'fail',
-    message: err.message
-  });
-});
+// For handling errors globally
+app.use(globalErrorHandler);
 
 
 
