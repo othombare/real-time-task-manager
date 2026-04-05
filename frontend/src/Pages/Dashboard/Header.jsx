@@ -35,7 +35,11 @@ export function Header() {
     };
 
   const handleCreateProject = (projectData) => {
-    const newProject = createProject(projectData);
+    const newProject = createProject({
+      ...projectData,
+      owner: displayName,
+      stage: "Planning",
+    });
     navigate(`/projects/${newProject.slug}`);
   };
 

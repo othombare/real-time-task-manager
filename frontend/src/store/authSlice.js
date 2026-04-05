@@ -8,6 +8,7 @@ import {
   logoutUser as logoutRequest,
   registerUser as registerRequest,
   resetPassword as resetPasswordRequest,
+  updateStoredProfile,
 } from "../api/auth";
 
 const getInitialUser = () => getStoredProfile();
@@ -100,7 +101,15 @@ const authSlice = createSlice({
     initialized: !isAuthenticated() || Boolean(getInitialUser()),
     error: null,
   },
-  reducers: {},
+  reducers: {
+    updateProfileLocally: (state, action) => {
+      state.user = {
+        ...state.user,
+        ...action.payload,
+      };
+      updateStoredProfile(state.user);
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(initializeAuth.pending, (state) => {
@@ -176,4 +185,5 @@ const authSlice = createSlice({
   },
 });
 
+export const { updateProfileLocally } = authSlice.actions;
 export default authSlice.reducer;

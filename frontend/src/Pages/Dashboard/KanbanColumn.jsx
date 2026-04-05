@@ -3,7 +3,7 @@ import { MoreHorizontalIcon, PlusIcon } from "lucide-react"
 import { TaskCard } from "./TaskCard"
 import { cn } from "../../lib/utils"
 
-export function KanbanColumn({ title, tasks, color, onAddTask }) {
+export function KanbanColumn({ title, tasks, color, onAddTask, onUpdateTask }) {
   return (
     <div className="flex flex-col gap-4 kanban-column flex-1 min-w-[300px]">
       <div className="flex items-center justify-between px-1">
@@ -36,7 +36,7 @@ export function KanbanColumn({ title, tasks, color, onAddTask }) {
       >
         <AnimatePresence mode="popLayout">
           {tasks.map((task) => (
-            <TaskCard key={task.id} {...task} />
+            <TaskCard key={task.id} {...task} onUpdateTask={onUpdateTask} />
           ))}
         </AnimatePresence>
         

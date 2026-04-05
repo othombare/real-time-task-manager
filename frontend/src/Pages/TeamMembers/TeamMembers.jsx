@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   MailIcon,
   ShieldCheckIcon,
-  SparklesIcon,
   UsersIcon,
   UserRoundCheckIcon,
   XIcon,
@@ -195,35 +194,49 @@ function TeamMembers() {
               </button>
             </div>
 
-            <div className="mt-5 space-y-4 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Status</span>
-                <span className="font-semibold">{selectedMember.status}</span>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+                {selectedMember.status}
+              </span>
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+                {selectedMember.team}
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div className="rounded-2xl border border-border bg-muted/30 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  Email
+                </p>
+                <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
+                  <MailIcon size={16} className="text-primary" />
+                  <span>{selectedMember.email}</span>
+                </div>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Team</span>
-                <span className="font-semibold">{selectedMember.team}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Location</span>
-                <span className="font-semibold">{selectedMember.location}</span>
+
+              <div className="rounded-2xl border border-border bg-muted/30 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  About
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {selectedMember.bio}
+                </p>
               </div>
             </div>
 
-            <div className="mt-5 rounded-2xl bg-slate-50 p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <MailIcon size={16} className="text-primary" />
-                Contact
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  Location
+                </p>
+                <p className="mt-1 font-medium">{selectedMember.location}</p>
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {selectedMember.email}
-              </p>
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-primary/5 p-4">
-              <p className="text-sm leading-6 text-muted-foreground">
-                {selectedMember.bio}
-              </p>
+              <div className="rounded-2xl border border-border bg-card px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  Team
+                </p>
+                <p className="mt-1 font-medium">{selectedMember.team}</p>
+              </div>
             </div>
           </div>
         </div>

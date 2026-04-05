@@ -72,13 +72,23 @@ const getUserInitials = (name) =>
     .slice(0, 2)
     .toUpperCase();
 
+const memberNameMap = {
+  OJ: "Onkar J.",
+  AK: "Aarav K.",
+  SK: "Sakshi K.",
+  AN: "Anika N.",
+  RJ: "Riya J.",
+  VK: "Vivek K.",
+  MK: "Meera K.",
+};
+
 const getGreetingByTime = () => {
   const hour = new Date().getHours();
 
   if (hour < 12) return "Good Morning";
   if (hour < 17) return "Good Afternoon";
-  if (hour < 21) return "Good Evening";
-  return "Good Night";
+  if (hour < 24) return "Good Evening";
+  return "Welcome to Dashboard";
 };
 
 function Home() {
@@ -94,6 +104,20 @@ function Home() {
     () => projects.map((project) => project.title),
     [projects]
   );
+  const assigneeOptions = useMemo(() => {
+    const uniqueMembers = new Set(projects.flatMap((project) => project.members));
+    uniqueMembers.add(userInitials);
+
+    return Array.from(uniqueMembers)
+      .sort((a, b) => a.localeCompare(b))
+      .map((member) => ({
+        value: member,
+        label:
+          member === userInitials
+            ? `${memberNameMap[member] || member} (You)`
+            : memberNameMap[member] || member,
+      }));
+  }, [projects, userInitials]);
 
   const boardColumns = useMemo(() => {
     const assignedProjectColumns = dashboardColumns.map((column) => ({
@@ -116,6 +140,7 @@ function Home() {
           .map((task) => ({
             ...task,
             projectName: project.title,
+            createdBy: task.createdBy || project.owner || "Workspace",
           }));
 
         targetColumn.tasks.push(...matchingTasks);
@@ -181,6 +206,7 @@ function Home() {
                   id: Date.now(),
                   ...newTask,
                   projectName: newTask.projectName || "Workspace",
+                  createdBy: newTask.createdBy || profile?.name || "You",
                 },
                 ...column.tasks,
               ],
@@ -257,6 +283,7 @@ function Home() {
         statuses={boardColumns.map((column) => column.title)}
         showProjectField
         projectOptions={projectOptions}
+        assigneeOptions={assigneeOptions}
         initialStatus={selectedStatus}
       />
 

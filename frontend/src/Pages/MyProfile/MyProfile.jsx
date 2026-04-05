@@ -1,8 +1,9 @@
-import { ImageIcon, LogOutIcon, MailIcon, ShieldCheckIcon, SparklesIcon, UserRoundIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ImageIcon, LogOutIcon, MailIcon, PencilIcon, SaveIcon, ShieldCheckIcon, SparklesIcon, UserRoundIcon, XIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { logout } from "../../store/authSlice";
+import { logout, updateProfileLocally } from "../../store/authSlice";
 import { useAppDispatch } from "../../store/hooks";
 
 const profileStats = [
@@ -15,6 +16,26 @@ function MyProfile() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { profile, loading } = useCurrentUser();
+  const [role, setRole] = useState("");
+  const [about, setAbout] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    setRole(profile?.role || "Workspace Member");
+    setAbout(
+      profile?.about ||
+        "This profile is connected to your active session. Add a short intro so teammates can quickly understand your role and focus."
+    );
+  }, [profile]);
+
+  const roleOptions = [
+    "Workspace Member",
+    "Frontend Developer",
+    "Backend Engineer",
+    "UI Designer",
+    "QA Analyst",
+    "Project Manager",
+  ];
 
   const handleLogout = () => {
     // Clear the local auth session before sending the user back to login.
@@ -24,7 +45,6 @@ function MyProfile() {
 
   const displayName = profile?.name || "Loading profile...";
   const displayEmail = profile?.email || "No email available";
-  const displayRole = profile?.role || "Workspace Member";
   const displayAvatar = profile?.avatar || profile?.photo;
   const initials = (profile?.name || "TV")
     .split(" ")
@@ -32,6 +52,25 @@ function MyProfile() {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  const handleSaveProfile = () => {
+    dispatch(
+      updateProfileLocally({
+        role,
+        about: about.trim(),
+      })
+    );
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setRole(profile?.role || "Workspace Member");
+    setAbout(
+      profile?.about ||
+        "This profile is connected to your active session. Add a short intro so teammates can quickly understand your role and focus."
+    );
+    setIsEditing(false);
+  };
 
   return (
     <DashboardLayout>
@@ -75,7 +114,38 @@ function MyProfile() {
         <section className="grid gap-5 lg:grid-cols-[1.3fr_0.9fr]">
           <div className="space-y-5">
             <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-              <h2 className="text-lg font-semibold">Profile Details</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Profile Details</h2>
+                {isEditing ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveProfile}
+                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                    >
+                      <SaveIcon size={14} />
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
+                    >
+                      <XIcon size={14} />
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
+                  >
+                    <PencilIcon size={14} />
+                    Edit
+                  </button>
+                )}
+              </div>
               <div className="mt-5 space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="rounded-2xl bg-slate-100 p-2 text-slate-700">
@@ -83,7 +153,21 @@ function MyProfile() {
                   </div>
                   <div>
                     <p className="text-sm font-medium">Role</p>
-                    <p className="text-sm text-muted-foreground capitalize">{displayRole}</p>
+                    {isEditing ? (
+                      <select
+                        value={role}
+                        onChange={(event) => setRole(event.target.value)}
+                        className="mt-1 h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                      >
+                        {roleOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <p className="text-sm text-muted-foreground capitalize">{role}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -111,10 +195,18 @@ function MyProfile() {
 
             <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
               <h2 className="text-lg font-semibold">About</h2>
-              <p className="mt-4 text-sm leading-7 text-muted-foreground">
-                This section is now reading the logged-in fake API user profile, so the name, email, role, and avatar reflect the active bearer token.
-                You can later swap this helper to your real backend without changing the page structure.
-              </p>
+              {isEditing ? (
+                <textarea
+                  value={about}
+                  onChange={(event) => setAbout(event.target.value)}
+                  className="mt-4 min-h-32 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-7 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  placeholder="Add a short profile summary..."
+                />
+              ) : (
+                <p className="mt-4 text-sm leading-7 text-muted-foreground">
+                  {about}
+                </p>
+              )}
             </div>
           </div>
 
@@ -151,7 +243,7 @@ function MyProfile() {
                 <h2 className="font-semibold">Next Step</h2>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Hook this page up to your real backend later for editable profile settings, avatar uploads, and security preferences.
+                You can now update your role and about section locally, and later connect the same UI to your real backend.
               </p>
             </div>
 

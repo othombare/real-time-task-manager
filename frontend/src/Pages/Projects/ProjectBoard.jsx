@@ -13,16 +13,36 @@ import DashboardLayout from "../Dashboard/DashboardLayout";
 import { KanbanColumn } from "../Dashboard/KanbanColumn";
 import { cloneProjectBoard, projectBoardTemplate } from "./projectData";
 import { useProjects } from "./useProjects";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+
+const memberNameMap = {
+  OJ: "Onkar J.",
+  AK: "Aarav K.",
+  SK: "Sakshi K.",
+  AN: "Anika N.",
+  RJ: "Riya J.",
+  VK: "Vivek K.",
+  MK: "Meera K.",
+};
 
 function ProjectBoard() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
-  const { getProjectBySlug, updateProjectBoard } = useProjects();
+  const { profile } = useCurrentUser();
+  const { getProjectBySlug, updateProjectBoard, updateProjectTask } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("To Do");
   const boardColumns = useMemo(
     () => (project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)),
+    [project]
+  );
+  const assigneeOptions = useMemo(
+    () =>
+      (project?.members ?? []).map((member) => ({
+        value: member,
+        label: memberNameMap[member] || member,
+      })),
     [project]
   );
 
@@ -42,7 +62,14 @@ function ProjectBoard() {
         column.title === newTask.status
           ? {
               ...column,
-              tasks: [{ id: Date.now(), ...newTask }, ...column.tasks],
+              tasks: [
+                {
+                  id: Date.now(),
+                  ...newTask,
+                  createdBy: newTask.createdBy || profile?.name || "Workspace",
+                },
+                ...column.tasks,
+              ],
             }
           : column
       )
@@ -52,6 +79,10 @@ function ProjectBoard() {
   const openAddTaskModal = (status = "To Do") => {
     setSelectedStatus(status);
     setIsAddTaskOpen(true);
+  };
+
+  const handleUpdateTask = (taskId, updates) => {
+    updateProjectTask(projectSlug, taskId, updates);
   };
 
   if (!project) {
@@ -93,12 +124,6 @@ function ProjectBoard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
-              {project.stage}
-            </span>
-            <span className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-primary-foreground">
-              {project.status}
-            </span>
             <button
               type="button"
               onClick={() => openAddTaskModal()}
@@ -166,6 +191,7 @@ function ProjectBoard() {
                     key={column.title}
                     {...column}
                     onAddTask={openAddTaskModal}
+                    onUpdateTask={handleUpdateTask}
                   />
                 ))}
               </div>
@@ -206,14 +232,6 @@ function ProjectBoard() {
                 ))}
               </div>
             </div>
-
-            <div className="rounded-3xl border border-primary/20 bg-primary/5 p-5 shadow-sm">
-              <h3 className="font-semibold text-primary">Workflow</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Each project now has its own Jira-style task board, so you can open a project and manage only the work
-                that belongs to it.
-              </p>
-            </div>
           </aside>
         </section>
       </div>
@@ -223,6 +241,7 @@ function ProjectBoard() {
         onClose={() => setIsAddTaskOpen(false)}
         onSubmit={handleAddTask}
         statuses={boardColumns.map((column) => column.title)}
+        assigneeOptions={assigneeOptions}
         initialStatus={selectedStatus}
       />
     </DashboardLayout>

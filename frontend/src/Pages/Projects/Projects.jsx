@@ -1,4 +1,4 @@
-import { ArrowRightIcon, BriefcaseBusinessIcon, FolderKanbanIcon, TrendingUpIcon } from "lucide-react";
+import { ArrowRightIcon, BriefcaseBusinessIcon, FolderKanbanIcon, PaperclipIcon, TrendingUpIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useProjects } from "./useProjects";
@@ -15,7 +15,7 @@ function Projects() {
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">Delivery</p>
             <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
             <p className="text-sm text-muted-foreground">
-              A project view for tracking active initiatives, stages, and overall momentum.
+              A project view for tracking active initiatives and overall momentum.
             </p>
           </div>
 
@@ -40,16 +40,14 @@ function Projects() {
                 className="w-full rounded-3xl border border-border bg-card p-5 text-left shadow-sm transition hover:border-primary/20 hover:shadow-md"
               >
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
-                      {project.stage}
-                    </span>
-                    <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground">
-                      {project.status}
-                    </span>
-                  </div>
                   <h2 className="text-lg font-semibold">{project.title}</h2>
                   <p className="text-sm leading-6 text-muted-foreground">{project.description}</p>
+                  {(project.attachments ?? 0) > 0 && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                      <PaperclipIcon size={12} />
+                      {project.attachments} attachment{project.attachments > 1 ? "s" : ""}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                       Open board

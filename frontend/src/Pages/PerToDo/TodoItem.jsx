@@ -4,11 +4,16 @@ import { useTodo } from "./contexts";
 
 function TodoItem({ todo }) {
   const [draft, setDraft] = useState(todo.todo);
+  const [draftDescription, setDraftDescription] = useState(todo.description || "");
   const [isEditing, setIsEditing] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const { deleteTodo, toggleComplete, updateTodo } = useTodo();
 
   const handleSave = () => {
-    const wasUpdated = updateTodo(todo.id, draft);
+    const wasUpdated = updateTodo(todo.id, {
+      todo: draft,
+      description: draftDescription,
+    });
 
     if (wasUpdated) {
       setIsEditing(false);
@@ -17,18 +22,20 @@ function TodoItem({ todo }) {
 
   const handleCancel = () => {
     setDraft(todo.todo);
+    setDraftDescription(todo.description || "");
     setIsEditing(false);
   };
 
   return (
-    <article
-      className={`rounded-2xl border p-4 shadow-sm transition ${
-        todo.completed
-          ? "border-emerald-200 bg-emerald-50/80"
-          : "border-border bg-white hover:border-primary/20"
-      }`}
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+    <>
+      <article
+        className={`rounded-2xl border p-4 shadow-sm transition ${
+          todo.completed
+            ? "border-emerald-200 bg-emerald-50/80"
+            : "border-border bg-white hover:border-primary/20"
+        }`}
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <button
           type="button"
           onClick={() => toggleComplete(todo.id)}
@@ -42,15 +49,27 @@ function TodoItem({ todo }) {
           <CheckIcon size={14} />
         </button>
 
-        <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => !isEditing && setIsOpen(true)}
+          className="min-w-0 flex-1 text-left"
+        >
           {isEditing ? (
-            <input
-              type="text"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-              autoFocus
-            />
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                autoFocus
+              />
+              <textarea
+                value={draftDescription}
+                onChange={(event) => setDraftDescription(event.target.value)}
+                placeholder="Add a short description..."
+                className="min-h-20 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+              />
+            </div>
           ) : (
             <div className="space-y-1">
               <p
@@ -65,7 +84,7 @@ function TodoItem({ todo }) {
               </p>
             </div>
           )}
-        </div>
+        </button>
 
         <div className="flex items-center gap-2 self-end sm:self-auto">
           {isEditing ? (
@@ -108,8 +127,53 @@ function TodoItem({ todo }) {
             Delete
           </button>
         </div>
-      </div>
-    </article>
+        </div>
+      </article>
+
+      {isOpen && !isEditing && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/45 p-4">
+          <button
+            type="button"
+            aria-label="Close todo details"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-[28px] border border-primary/20 bg-card p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span
+                  className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${
+                    todo.completed
+                      ? "bg-emerald-500/10 text-emerald-600"
+                      : "bg-primary/10 text-primary"
+                  }`}
+                >
+                  {todo.completed ? "Completed" : "Active"}
+                </span>
+                <h3 className="mt-3 text-xl font-semibold tracking-tight">{todo.todo}</h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-full p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <XIcon size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-border bg-muted/30 p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                Description
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {todo.description || "No description added for this item."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

@@ -45,8 +45,9 @@ function PerToDo() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
   }, [todos]);
 
-  const addTodo = (todoText) => {
+  const addTodo = ({ todo: todoText, description = "" }) => {
     const trimmedTodo = todoText.trim();
+    const trimmedDescription = description.trim();
 
     if (!trimmedTodo) {
       return false;
@@ -56,6 +57,7 @@ function PerToDo() {
       {
         id: Date.now(),
         todo: trimmedTodo,
+        description: trimmedDescription,
         completed: false,
         createdAt: new Date().toISOString(),
       },
@@ -65,8 +67,9 @@ function PerToDo() {
     return true;
   };
 
-  const updateTodo = (id, todoText) => {
+  const updateTodo = (id, { todo: todoText, description = "" }) => {
     const trimmedTodo = todoText.trim();
+    const trimmedDescription = description.trim();
 
     if (!trimmedTodo) {
       return false;
@@ -78,6 +81,7 @@ function PerToDo() {
           ? {
               ...todo,
               todo: trimmedTodo,
+              description: trimmedDescription,
             }
           : todo
       )

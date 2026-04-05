@@ -8,6 +8,7 @@ const ProjectsContext = createContext({
   createProject: () => null,
   getProjectBySlug: () => null,
   updateProjectBoard: () => {},
+  updateProjectTask: () => {},
 });
 
 export { ProjectsContext };
@@ -32,7 +33,7 @@ export function ProjectsProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
   }, [projects]);
 
-  const createProject = useCallback(({ title, description, stage, owner, members }) => {
+  const createProject = useCallback(({ title, description, stage, owner, members, attachments = 0, attachmentFiles = [] }) => {
     const baseSlug = createProjectSlug(title) || `project-${Date.now()}`;
     let candidateSlug = baseSlug;
     let suffix = 1;
@@ -48,9 +49,11 @@ export function ProjectsProvider({ children }) {
       title,
       description,
       status: "Planning",
-      stage,
-      owner,
+      stage: stage || "Planning",
+      owner: owner || "Workspace",
       members,
+      attachments,
+      attachmentFiles,
       board: cloneProjectBoard(projectBoardTemplate),
     };
 
@@ -71,14 +74,38 @@ export function ProjectsProvider({ children }) {
     );
   }, []);
 
+  const updateProjectTask = useCallback((projectSlug, taskId, updates) => {
+    setProjects((currentProjects) =>
+      currentProjects.map((project) =>
+        project.slug === projectSlug
+          ? {
+              ...project,
+              board: project.board.map((column) => ({
+                ...column,
+                tasks: column.tasks.map((task) =>
+                  task.id === taskId
+                    ? {
+                        ...task,
+                        ...updates,
+                      }
+                    : task
+                ),
+              })),
+            }
+          : project
+      )
+    );
+  }, []);
+
   const value = useMemo(
     () => ({
       projects,
       createProject,
       getProjectBySlug: (slug) => projects.find((project) => project.slug === slug),
       updateProjectBoard,
+      updateProjectTask,
     }),
-    [createProject, projects, updateProjectBoard]
+    [createProject, projects, updateProjectBoard, updateProjectTask]
   );
 
   return <ProjectsContext.Provider value={value}>{children}</ProjectsContext.Provider>;

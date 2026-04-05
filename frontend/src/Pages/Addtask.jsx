@@ -4,6 +4,7 @@ import { CalendarIcon, PlusIcon, XIcon } from "lucide-react";
 const initialFormState = {
   title: "",
   description: "",
+  notes: "",
   projectName: "",
   priority: "Medium",
   status: "To Do",
@@ -18,10 +19,13 @@ function Addtask({
   statuses,
   showProjectField = false,
   projectOptions = [],
+  assigneeOptions = [],
   initialStatus = "To Do",
 }) {
   const [form, setForm] = useState(initialFormState);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const dueDateInputRef = useRef(null);
+  const attachmentInputRef = useRef(null);
 
   const minDate = useMemo(() => new Date().toISOString().split("T")[0], []);
 
@@ -45,6 +49,11 @@ function Addtask({
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  const handleAttachmentChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    setSelectedFiles(files);
+  };
+
   const openDatePicker = () => {
     const input = dueDateInputRef.current;
     if (!input) {
@@ -57,6 +66,18 @@ function Addtask({
     }
   };
 
+  const handleClose = () => {
+    setForm({
+      ...initialFormState,
+      status: statuses[0] || "To Do",
+    });
+    setSelectedFiles([]);
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+    }
+    onClose();
+  };
+
   const handleSubmit = (event) => {
     event.preventDefault();
 
@@ -67,30 +88,37 @@ function Addtask({
       return;
     }
 
+    const selectedAssigneeOption = assigneeOptions.find(
+      (option) => option.value === trimmedAssignee
+    );
+
     onSubmit({
       title: trimmedTitle,
       description: form.description.trim(),
+      notes: form.notes.trim(),
       projectName: form.projectName.trim(),
       priority: form.priority,
       status: form.status,
-      assignee: trimmedAssignee
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .map((name) => name.slice(0, 2).toUpperCase()),
+      assignee: [trimmedAssignee],
+      assigneeNames: selectedAssigneeOption ? [selectedAssigneeOption.label] : [trimmedAssignee],
       dueDate: new Date(form.dueDate).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
       }),
       comments: 0,
-      attachments: 0,
+      attachments: selectedFiles.length,
+      attachmentFiles: selectedFiles.map((file) => file.name),
     });
 
     setForm({
       ...initialFormState,
       status: statuses[0] || "To Do",
     });
-    onClose();
+    setSelectedFiles([]);
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+    }
+    handleClose();
   };
 
   return (
@@ -106,7 +134,7 @@ function Addtask({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded-xl border border-border p-2 text-muted-foreground transition hover:border-primary/30 hover:text-primary"
             aria-label="Close add task form"
           >
@@ -145,6 +173,23 @@ function Addtask({
               onChange={handleChange}
               placeholder="Add context, acceptance notes, or handoff details."
               className="min-h-24 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold" htmlFor="task-notes">
+              Notes
+              <span className="ml-2 text-xs font-medium text-muted-foreground">
+                Optional
+              </span>
+            </label>
+            <textarea
+              id="task-notes"
+              name="notes"
+              value={form.notes}
+              onChange={handleChange}
+              placeholder="Add reminders, blockers, or small implementation notes."
+              className="min-h-20 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
           </div>
 
@@ -217,18 +262,25 @@ function Addtask({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-semibold" htmlFor="task-assignee">
-                Assignee initials
+                Assignee
               </label>
-              <input
+              <select
                 id="task-assignee"
                 name="assignee"
-                type="text"
                 value={form.assignee}
                 onChange={handleChange}
-                placeholder="OJ, AK"
                 className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 required
-              />
+              >
+                <option value="" disabled>
+                  Select team member
+                </option>
+                {assigneeOptions.map((assignee) => (
+                  <option key={assignee.value} value={assignee.value}>
+                    {assignee.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">
@@ -257,10 +309,32 @@ function Addtask({
             </div>
           </div>
 
+          <div className="space-y-2">
+            <label className="text-sm font-semibold" htmlFor="task-attachments">
+              Attachments
+              <span className="ml-2 text-xs font-medium text-muted-foreground">
+                Optional
+              </span>
+            </label>
+            <input
+              ref={attachmentInputRef}
+              id="task-attachments"
+              type="file"
+              multiple
+              onChange={handleAttachmentChange}
+              className="block w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm text-muted-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary"
+            />
+            {selectedFiles.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""} selected
+              </p>
+            )}
+          </div>
+
           <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
             >
               Cancel

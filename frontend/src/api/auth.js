@@ -23,6 +23,10 @@ const setStoredProfile = (profile) => {
   }
 };
 
+export const updateStoredProfile = (profile) => {
+  setStoredProfile(profile);
+};
+
 export const getStoredProfile = () => {
   try {
     const storedProfile = localStorage.getItem(PROFILE_KEY);
