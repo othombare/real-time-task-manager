@@ -1,5 +1,13 @@
-import { SettingsIcon, ShieldCheckIcon, SlidersHorizontalIcon, SparklesIcon } from "lucide-react";
+import {
+  MoonStarIcon,
+  SettingsIcon,
+  ShieldCheckIcon,
+  SlidersHorizontalIcon,
+  SparklesIcon,
+  SunMediumIcon,
+} from "lucide-react";
 import DashboardLayout from "../Dashboard/DashboardLayout";
+import { useTheme } from "../../hooks/useTheme";
 
 const settingsGroups = [
   {
@@ -12,11 +20,13 @@ const settingsGroups = [
   },
   {
     title: "Appearance",
-    description: "Prepare this page for themes, density controls, and personalized visual settings later.",
+    description: "Choose the theme you want to use across the workspace.",
   },
 ];
 
 function Settings() {
+  const { theme, setTheme } = useTheme();
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -46,6 +56,54 @@ function Settings() {
               <article key={group.title} className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <h2 className="text-lg font-semibold">{group.title}</h2>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">{group.description}</p>
+
+                {group.title === "Appearance" && (
+                  <div className="mt-5 grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setTheme("light")}
+                      className={`rounded-2xl border p-4 text-left transition ${
+                        theme === "light"
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-border hover:border-primary/20"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-xl bg-amber-500/10 p-2 text-amber-600">
+                          <SunMediumIcon size={18} />
+                        </div>
+                        <div>
+                          <p className="font-semibold">Light Theme</p>
+                          <p className="text-sm text-muted-foreground">
+                            Bright, clean workspace appearance.
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTheme("dark")}
+                      className={`rounded-2xl border p-4 text-left transition ${
+                        theme === "dark"
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-border hover:border-primary/20"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-xl bg-sky-500/10 p-2 text-sky-500">
+                          <MoonStarIcon size={18} />
+                        </div>
+                        <div>
+                          <p className="font-semibold">Dark Theme</p>
+                          <p className="text-sm text-muted-foreground">
+                            Lower-glare interface for darker environments.
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )}
               </article>
             ))}
           </div>

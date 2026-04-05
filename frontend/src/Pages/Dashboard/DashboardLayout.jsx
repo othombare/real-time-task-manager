@@ -12,7 +12,7 @@ function DashboardLayout({ children }) {
 
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <Header sidebarCollapsed={collapsed} />
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/50 p-8 pt-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-background/40 p-8 pt-6">
           {children}
         </div>
       </main>

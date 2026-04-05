@@ -2,15 +2,18 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/Input";
 import loginBg from "../../assets/login-bg.png";
-import { getLastProtectedRoute, loginUser } from "../../api/auth";
+import { getLastProtectedRoute } from "../../api/auth";
+import { login } from "../../store/authSlice";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import "../../styles/auth.css";
 
 const Login = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const loading = useAppSelector((state) => state.auth.loading);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -19,7 +22,6 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
 
     const newErrors = {};
     if (!form.email) newErrors.email = "*Email is required";
@@ -34,12 +36,11 @@ const Login = () => {
 
     try {
       setStatusMessage("");
-      const data = await loginUser(form);
-      const token = data?.access_token || data?.token;
+      const data = await dispatch(login(form)).unwrap();
+      const token = data?.token;
 
       if (!token) {
         setStatusMessage("User not registered. Please register first.");
-        setLoading(false);
         return;
       }
 
@@ -56,8 +57,6 @@ const Login = () => {
       }
 
       console.error("Login error:", error);
-    } finally {
-      setLoading(false);
     }
   };
 

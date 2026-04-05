@@ -2,15 +2,18 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/Input";
 import registerbg from "../../assets/register-bg.png";
-import { getLastProtectedRoute, registerUser } from "../../api/auth";
+import { getLastProtectedRoute } from "../../api/auth";
+import { register } from "../../store/authSlice";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import "../../styles/auth.css";
 
 const Register = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const loading = useAppSelector((state) => state.auth.loading);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -31,18 +34,17 @@ const Register = () => {
       return;
     }
 
-    setLoading(true);
     setStatusMessage("");
 
     try {
-      const data = await registerUser({
+      const data = await dispatch(register({
         name: form.name,
         email: form.email,
         password: form.password,
         avatar: "https://i.pravatar.cc/150?img=3",
-      });
+      })).unwrap();
 
-      const token = data?.access_token || data?.token;
+      const token = data?.token;
 
       if (token) {
         navigate(getLastProtectedRoute(), { replace: true });
@@ -58,8 +60,6 @@ const Register = () => {
         "Registration failed. Please try again.";
 
       setStatusMessage(message);
-    } finally {
-      setLoading(false);
     }
   };
 
