@@ -13,6 +13,7 @@ import Addtask from "../Addtask";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { StatCard } from "./StatCard";
 import { KanbanColumn } from "./KanbanColumn";
+import { useProjects } from "../Projects/useProjects";
 
 const stats = [
   {
@@ -45,42 +46,31 @@ const stats = [
   },
 ];
 
-const kanbanData = [
+const dashboardColumns = [
   {
     title: "To Do",
     color: "bg-slate-400/50",
-    tasks: [
-      { id: 1, title: "Design system research and initial mockup design", priority: "High", assignee: ["OJ", "AK"], dueDate: "Apr 5", comments: 3, attachments: 2 },
-      { id: 2, title: "Weekly client sync and presentation preparation", priority: "Medium", assignee: ["OJ"], dueDate: "Apr 4", comments: 1 },
-      { id: 3, title: "Fix production bugs reported by QA team last night", priority: "High", assignee: ["MK"], dueDate: "Apr 3" },
-    ],
+    tasks: [],
   },
   {
     title: "In Progress",
     color: "bg-primary",
-    tasks: [
-      { id: 4, title: "Develop core API endpoints for task management", priority: "High", assignee: ["AK", "SK"], dueDate: "Apr 6", comments: 8, attachments: 5 },
-      { id: 5, title: "Refactor sidebar component for better accessibility", priority: "Medium", assignee: ["OJ"], dueDate: "Apr 8" },
-    ],
-  },
-  {
-    title: "Review",
-    color: "bg-amber-400",
-    tasks: [
-      { id: 6, title: "Landing page SEO optimization and performance audit", priority: "Low", assignee: ["MK"], dueDate: "Apr 10", attachments: 1 },
-      { id: 7, title: "Integration with Stripe for payment processing", priority: "High", assignee: ["SK"], dueDate: "Apr 12", comments: 12 },
-    ],
+    tasks: [],
   },
   {
     title: "Done",
     color: "bg-emerald-500",
-    tasks: [
-      { id: 8, title: "Setup CI/CD pipeline using Github Actions", priority: "Medium", assignee: ["AK"], dueDate: "Mar 30", comments: 2 },
-      { id: 9, title: "Initial project scoping and feasibility study", priority: "Low", assignee: ["OJ", "SK"], dueDate: "Mar 28" },
-      { id: 10, title: "Define sprint goals and initial product backlog", priority: "High", assignee: ["OJ"], dueDate: "Mar 25", attachments: 3 },
-    ],
+    tasks: [],
   },
 ];
+
+const getUserInitials = (name) =>
+  (name || "OJ")
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
 const getGreetingByTime = () => {
   const hour = new Date().getHours();
@@ -93,10 +83,56 @@ const getGreetingByTime = () => {
 
 function Home() {
   const { profile } = useCurrentUser();
+  const { projects } = useProjects();
   const firstName = profile?.name?.split(" ")[0] || "there";
+  const userInitials = getUserInitials(profile?.name);
   const greeting = getGreetingByTime();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
-  const [boardColumns, setBoardColumns] = useState(kanbanData);
+  const [selectedStatus, setSelectedStatus] = useState("To Do");
+  const [personalColumns, setPersonalColumns] = useState(dashboardColumns);
+  const projectOptions = useMemo(
+    () => projects.map((project) => project.title),
+    [projects]
+  );
+
+  const boardColumns = useMemo(() => {
+    const assignedProjectColumns = dashboardColumns.map((column) => ({
+      ...column,
+      tasks: [],
+    }));
+
+    projects.forEach((project) => {
+      project.board.forEach((column) => {
+        const targetColumn = assignedProjectColumns.find(
+          (item) => item.title === column.title
+        );
+
+        if (!targetColumn) {
+          return;
+        }
+
+        const matchingTasks = column.tasks
+          .filter((task) => task.assignee.includes(userInitials))
+          .map((task) => ({
+            ...task,
+            projectName: project.title,
+          }));
+
+        targetColumn.tasks.push(...matchingTasks);
+      });
+    });
+
+    return assignedProjectColumns.map((column) => {
+      const personalColumn = personalColumns.find(
+        (item) => item.title === column.title
+      );
+
+      return {
+        ...column,
+        tasks: [...(personalColumn?.tasks ?? []), ...column.tasks],
+      };
+    });
+  }, [personalColumns, projects, userInitials]);
 
   const taskStats = useMemo(() => {
     const allTasks = boardColumns.flatMap((column) => column.tasks);
@@ -135,7 +171,7 @@ function Home() {
   ];
 
   const handleAddTask = (newTask) => {
-    setBoardColumns((currentColumns) =>
+    setPersonalColumns((currentColumns) =>
       currentColumns.map((column) =>
         column.title === newTask.status
           ? {
@@ -144,6 +180,7 @@ function Home() {
                 {
                   id: Date.now(),
                   ...newTask,
+                  projectName: newTask.projectName || "Workspace",
                 },
                 ...column.tasks,
               ],
@@ -153,13 +190,18 @@ function Home() {
     );
   };
 
+  const openAddTaskModal = (status = "To Do") => {
+    setSelectedStatus(status);
+    setIsAddTaskOpen(true);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-10">
         <section className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">{greeting}, {firstName}</h1>
           <p className="text-muted-foreground font-medium flex items-center gap-2">
-            Here&apos;s what&apos;s happening today in your workspace.
+            Here&apos;s what&apos;s assigned to you across the workspace.
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold ring-1 ring-primary/20">
               <ClockIcon size={12} /> Upcoming Sync in 20m
             </span>
@@ -183,11 +225,11 @@ function Home() {
               </button>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsAddTaskOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-xl text-sm font-semibold hover:bg-muted transition-all shadow-sm active:scale-95 group"
-              >
+                <button
+                  type="button"
+                  onClick={() => openAddTaskModal()}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-xl text-sm font-semibold hover:bg-muted transition-all shadow-sm active:scale-95 group"
+                >
                 <PlusIcon size={16} className="text-primary group-hover:rotate-90 transition-transform" />
                 New Task
               </button>
@@ -196,11 +238,15 @@ function Home() {
             </div>
           </div>
 
-          <div className="flex gap-8 overflow-x-auto pb-10 custom-scrollbar snap-x snap-mandatory pr-4">
-            {boardColumns.map((column, idx) => (
-              <KanbanColumn key={idx} {...column} />
-            ))}
-          </div>
+            <div className="flex gap-8 overflow-x-auto pb-10 custom-scrollbar snap-x snap-mandatory pr-4">
+              {boardColumns.map((column, idx) => (
+                <KanbanColumn
+                  key={idx}
+                  {...column}
+                  onAddTask={openAddTaskModal}
+                />
+              ))}
+            </div>
         </section>
       </div>
 
@@ -209,6 +255,9 @@ function Home() {
         onClose={() => setIsAddTaskOpen(false)}
         onSubmit={handleAddTask}
         statuses={boardColumns.map((column) => column.title)}
+        showProjectField
+        projectOptions={projectOptions}
+        initialStatus={selectedStatus}
       />
 
       <motion.div

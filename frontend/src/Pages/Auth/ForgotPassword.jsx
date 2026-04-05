@@ -38,48 +38,50 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-left">
-        <img src={img} alt="Forgot Password" className="forgot-password-bg" />
-      </div>
+    <div className="auth-page-wrapper">
+      <div className="auth-container">
+        <div className="auth-left">
+          <img src={img} alt="Forgot Password" className="forgot-password-bg" />
+        </div>
 
-      <div className="auth-right">
-        <h2>Forgot Password</h2>
+        <div className="auth-right">
+          <h2>Forgot Password</h2>
 
-        <form onSubmit={handleSubmit}>
-          <Input
-            label="Email"
-            type="email"
-            name="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your registered email"
-          />
+          <form onSubmit={handleSubmit}>
+            <Input
+              label="Email"
+              type="email"
+              name="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your registered email"
+            />
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Sending..." : "Send Reset Link"}
-          </button>
-        </form>
+            <button type="submit" disabled={loading}>
+              {loading ? "Sending..." : "Send Reset Link"}
+            </button>
+          </form>
 
-        {message && (
-          <p
-            className={`auth-message ${isError ? "error" : "success"}`}
-            style={{ marginTop: "10px" }}
-          >
-            {message}
-          </p>
-        )}
+          {message && (
+            <p
+              className={`auth-message ${isError ? "error" : "success"}`}
+              style={{ marginTop: "10px" }}
+            >
+              {message}
+            </p>
+          )}
 
-        {resetUrl && (
-          <p className="auth-message success" style={{ marginTop: "8px" }}>
-            Development reset link: <Link to={resetUrl.replace("http://localhost:5173", "")}>Open reset page</Link>
-          </p>
-        )}
+          {resetUrl && (
+            <p className="auth-message success" style={{ marginTop: "8px" }}>
+              Development reset link: <Link to={resetUrl.replace("http://localhost:5173", "")}>Open reset page</Link>
+            </p>
+          )}
 
-        <div className="auth-links">
-          <p>
-            Remember your password? <Link to="/login">Login</Link>
-          </p>
+          <div className="auth-links">
+            <p>
+              Remember your password? <Link to="/login">Login</Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

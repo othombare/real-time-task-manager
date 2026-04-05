@@ -1,18 +1,40 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarIcon, PlusIcon, XIcon } from "lucide-react";
 
 const initialFormState = {
   title: "",
+  description: "",
+  projectName: "",
   priority: "Medium",
   status: "To Do",
   assignee: "",
   dueDate: "",
 };
 
-function Addtask({ isOpen, onClose, onSubmit, statuses }) {
+function Addtask({
+  isOpen,
+  onClose,
+  onSubmit,
+  statuses,
+  showProjectField = false,
+  projectOptions = [],
+  initialStatus = "To Do",
+}) {
   const [form, setForm] = useState(initialFormState);
+  const dueDateInputRef = useRef(null);
 
   const minDate = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      status: statuses.includes(initialStatus) ? initialStatus : statuses[0] || "To Do",
+    }));
+  }, [initialStatus, isOpen, statuses]);
 
   if (!isOpen) {
     return null;
@@ -21,6 +43,18 @@ function Addtask({ isOpen, onClose, onSubmit, statuses }) {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const openDatePicker = () => {
+    const input = dueDateInputRef.current;
+    if (!input) {
+      return;
+    }
+
+    input.focus();
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+    }
   };
 
   const handleSubmit = (event) => {
@@ -35,6 +69,8 @@ function Addtask({ isOpen, onClose, onSubmit, statuses }) {
 
     onSubmit({
       title: trimmedTitle,
+      description: form.description.trim(),
+      projectName: form.projectName.trim(),
       priority: form.priority,
       status: form.status,
       assignee: trimmedAssignee
@@ -50,7 +86,10 @@ function Addtask({ isOpen, onClose, onSubmit, statuses }) {
       attachments: 0,
     });
 
-    setForm(initialFormState);
+    setForm({
+      ...initialFormState,
+      status: statuses[0] || "To Do",
+    });
     onClose();
   };
 
@@ -91,6 +130,51 @@ function Addtask({ isOpen, onClose, onSubmit, statuses }) {
               required
             />
           </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold" htmlFor="task-description">
+              Description
+              <span className="ml-2 text-xs font-medium text-muted-foreground">
+                Optional
+              </span>
+            </label>
+            <textarea
+              id="task-description"
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              placeholder="Add context, acceptance notes, or handoff details."
+              className="min-h-24 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+            />
+          </div>
+
+          {showProjectField && (
+            <div className="space-y-2">
+              <label className="text-sm font-semibold" htmlFor="task-project-name">
+                Project name
+                <span className="ml-2 text-xs font-medium text-muted-foreground">
+                  Optional
+                </span>
+              </label>
+              <input
+                id="task-project-name"
+                name="projectName"
+                type="text"
+                list="project-name-options"
+                value={form.projectName}
+                onChange={handleChange}
+                placeholder="TaskVue Web App"
+                className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+              />
+              {projectOptions.length > 0 && (
+                <datalist id="project-name-options">
+                  {projectOptions.map((projectName) => (
+                    <option key={projectName} value={projectName} />
+                  ))}
+                </datalist>
+              )}
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -154,9 +238,11 @@ function Addtask({ isOpen, onClose, onSubmit, statuses }) {
               <div className="relative">
                 <CalendarIcon
                   size={16}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground transition hover:text-primary"
+                  onClick={openDatePicker}
                 />
                 <input
+                  ref={dueDateInputRef}
                   id="task-due-date"
                   name="dueDate"
                   type="date"
@@ -164,6 +250,7 @@ function Addtask({ isOpen, onClose, onSubmit, statuses }) {
                   onChange={handleChange}
                   min={minDate}
                   className="h-12 w-full rounded-2xl border border-input bg-background pl-11 pr-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  onClick={openDatePicker}
                   required
                 />
               </div>

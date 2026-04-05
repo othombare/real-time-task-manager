@@ -64,50 +64,52 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-left">
-        <img src={img} alt="Reset Password" className="forgot-password-bg" />
-      </div>
+    <div className="auth-page-wrapper">
+      <div className="auth-container">
+        <div className="auth-left">
+          <img src={img} alt="Reset Password" className="forgot-password-bg" />
+        </div>
 
-      <div className="auth-right">
-        <h2>Reset Password</h2>
+        <div className="auth-right">
+          <h2>Reset Password</h2>
 
-        <form onSubmit={handleSubmit}>
-          <Input
-            label="New Password"
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            placeholder="Enter your new password"
-            error={errors.password}
-          />
+          <form onSubmit={handleSubmit}>
+            <Input
+              label="New Password"
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Enter your new password"
+              error={errors.password}
+            />
 
-          <Input
-            label="Confirm Password"
-            type="password"
-            name="passwordConfirm"
-            value={form.passwordConfirm}
-            onChange={handleChange}
-            placeholder="Re-enter your new password"
-            error={errors.passwordConfirm}
-          />
+            <Input
+              label="Confirm Password"
+              type="password"
+              name="passwordConfirm"
+              value={form.passwordConfirm}
+              onChange={handleChange}
+              placeholder="Re-enter your new password"
+              error={errors.passwordConfirm}
+            />
 
-          {statusMessage && (
-            <p className="auth-message error" style={{ marginTop: "10px" }}>
-              {statusMessage}
+            {statusMessage && (
+              <p className="auth-message error" style={{ marginTop: "10px" }}>
+                {statusMessage}
+              </p>
+            )}
+
+            <button type="submit" disabled={loading}>
+              {loading ? "Resetting..." : "Reset Password"}
+            </button>
+          </form>
+
+          <div className="auth-links">
+            <p>
+              Back to <Link to="/login">Login</Link>
             </p>
-          )}
-
-          <button type="submit" disabled={loading}>
-            {loading ? "Resetting..." : "Reset Password"}
-          </button>
-        </form>
-
-        <div className="auth-links">
-          <p>
-            Back to <Link to="/login">Login</Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>

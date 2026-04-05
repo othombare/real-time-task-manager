@@ -61,53 +61,55 @@ const Login = () => {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-left">
-        <img src={loginBg} alt="Login Preview" className="loginbg" />
-      </div>
+    <div className="auth-page-wrapper">
+      <div className="auth-container">
+        <div className="auth-left">
+          <img src={loginBg} alt="Login Preview" className="loginbg" />
+        </div>
 
-      <div className="auth-right">
-        <h1 className="text-4xl ">Welcome Back!</h1>
-<h3 className="text-2xl text-gray-600">Login to your account</h3>
-<br/>
+        <div className="auth-right">
+          <h1 className="text-4xl ">Welcome Back!</h1>
+          <h3 className="text-2xl text-gray-600">Login to your account</h3>
+          <br/>
 
-        <form onSubmit={handleSubmit}>
-          <Input
-            label="Email"
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-            placeholder="Enter your email"
-            error={errors.email}
-          />
+          <form onSubmit={handleSubmit}>
+            <Input
+              label="Email"
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+              placeholder="Enter your email"
+              error={errors.email}
+            />
 
-          <Input
-            label="Password"
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            placeholder="Enter your password"
-            error={errors.password}
-          />
+            <Input
+              label="Password"
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Enter your password"
+              error={errors.password}
+            />
 
-          {errors.general && <p style={{ color: "red" }}>{errors.general}</p>}
-          {statusMessage && <p style={{ color: "red" }}>{statusMessage}</p>}
+            {errors.general && <p style={{ color: "red" }}>{errors.general}</p>}
+            {statusMessage && <p style={{ color: "red" }}>{statusMessage}</p>}
+
+            <div className="auth-links">
+              <Link to="/forgot-password">Forgot Password?</Link>
+            </div>
+
+            <button type="submit" disabled={loading}>
+              {loading ? "Logging in..." : "Login"}
+            </button>
+          </form>
 
           <div className="auth-links">
-            <Link to="/forgot-password">Forgot Password?</Link>
+            <p>
+              Don&apos;t have an account? <Link to="/register">Register</Link>
+            </p>
           </div>
-
-          <button type="submit" disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
-          </button>
-        </form>
-
-        <div className="auth-links">
-          <p>
-            Don&apos;t have an account? <Link to="/register">Register</Link>
-          </p>
         </div>
       </div>
     </div>

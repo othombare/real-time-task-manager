@@ -3,7 +3,7 @@ import { MoreHorizontalIcon, PlusIcon } from "lucide-react"
 import { TaskCard } from "./TaskCard"
 import { cn } from "../../lib/utils"
 
-export function KanbanColumn({ title, tasks, color }) {
+export function KanbanColumn({ title, tasks, color, onAddTask }) {
   return (
     <div className="flex flex-col gap-4 kanban-column flex-1 min-w-[300px]">
       <div className="flex items-center justify-between px-1">
@@ -17,7 +17,11 @@ export function KanbanColumn({ title, tasks, color }) {
           </h3>
         </div>
         <div className="flex items-center gap-1">
-          <button className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground transition-colors group">
+          <button
+            type="button"
+            onClick={() => onAddTask?.(title)}
+            className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground transition-colors group"
+          >
             <PlusIcon size={16} className="group-hover:text-primary" />
           </button>
           <button className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground transition-colors group">

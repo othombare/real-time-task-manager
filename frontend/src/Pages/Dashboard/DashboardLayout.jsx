@@ -7,10 +7,10 @@ function DashboardLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 selection:text-primary">
+    <div className="flex min-h-dvh bg-background text-foreground font-sans selection:bg-primary/20 selection:text-primary">
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
 
-      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 min-h-dvh overflow-hidden">
         <Header sidebarCollapsed={collapsed} />
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-background/40 p-8 pt-6">
           {children}

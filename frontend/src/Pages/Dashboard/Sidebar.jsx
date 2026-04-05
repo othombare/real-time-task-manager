@@ -12,7 +12,6 @@ import {
   ClipboardList
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { cn } from "../../lib/utils";
 import { useProjects } from "../Projects/useProjects";
 
@@ -31,26 +30,17 @@ const navItems = [
 export function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile } = useCurrentUser();
   const { projects } = useProjects();
-  const displayName = profile?.name || "Workspace User";
-  const displayRole = profile?.role || "Workspace Member";
-  const initials = (profile?.name || "WU")
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: collapsed ? 80 : 260 }}
-      className={cn(
-        "h-screen bg-card border-r border-border sticky top-0 flex flex-col transition-colors z-20 shadow-xl",
-        collapsed ? "overflow-visible" : "overflow-hidden"
-      )}
-    >
+      <motion.aside
+        initial={false}
+        animate={{ width: collapsed ? 80 : 260 }}
+        className={cn(
+          "min-h-dvh bg-card border-r border-border sticky top-0 flex flex-col transition-colors z-20 shadow-xl",
+          collapsed ? "overflow-visible" : "overflow-hidden"
+        )}
+      >
       <div className="p-6 flex items-center justify-between">
         <AnimatePresence mode="wait">
           {!collapsed && (
@@ -179,27 +169,6 @@ export function Sidebar({ collapsed, setCollapsed }) {
           );
         })}
       </nav>
-
-      <div className="p-4 border-t border-border bg-muted/30">
-        <button
-          type="button"
-          onClick={() => navigate("/my-profile")}
-          className={cn(
-            "w-full flex items-center gap-3 p-2 rounded-xl transition-colors text-left",
-            collapsed ? "justify-center" : "bg-card shadow-sm ring-1 ring-border/50 hover:ring-primary/20"
-          )}
-        >
-          <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-primary flex-shrink-0 flex items-center justify-center font-bold text-slate-800 text-sm">
-            {initials}
-          </div>
-          {!collapsed && (
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold truncate">{displayName}</p>
-              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{displayRole}</p>
-            </div>
-          )}
-        </button>
-      </div>
     </motion.aside>
   );
 }

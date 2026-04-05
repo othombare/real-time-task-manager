@@ -20,6 +20,7 @@ function ProjectBoard() {
   const { getProjectBySlug, updateProjectBoard } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState("To Do");
   const boardColumns = useMemo(
     () => (project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)),
     [project]
@@ -46,6 +47,11 @@ function ProjectBoard() {
           : column
       )
     );
+  };
+
+  const openAddTaskModal = (status = "To Do") => {
+    setSelectedStatus(status);
+    setIsAddTaskOpen(true);
   };
 
   if (!project) {
@@ -95,7 +101,7 @@ function ProjectBoard() {
             </span>
             <button
               type="button"
-              onClick={() => setIsAddTaskOpen(true)}
+              onClick={() => openAddTaskModal()}
               className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
             >
               <PlusIcon size={16} />
@@ -156,7 +162,11 @@ function ProjectBoard() {
 
               <div className="flex gap-8 overflow-x-auto pb-4 custom-scrollbar pr-2">
                 {boardColumns.map((column) => (
-                  <KanbanColumn key={column.title} {...column} />
+                  <KanbanColumn
+                    key={column.title}
+                    {...column}
+                    onAddTask={openAddTaskModal}
+                  />
                 ))}
               </div>
             </div>
@@ -213,6 +223,7 @@ function ProjectBoard() {
         onClose={() => setIsAddTaskOpen(false)}
         onSubmit={handleAddTask}
         statuses={boardColumns.map((column) => column.title)}
+        initialStatus={selectedStatus}
       />
     </DashboardLayout>
   );

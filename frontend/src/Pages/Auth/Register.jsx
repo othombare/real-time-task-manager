@@ -64,57 +64,59 @@ const Register = () => {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-left">
-        <img src={registerbg} alt="Register Preview" className="registerbg" />
-      </div>
-      
+    <div className="auth-page-wrapper">
+      <div className="auth-container">
+        <div className="auth-left">
+          <img src={registerbg} alt="Register Preview" className="registerbg" />
+        </div>
+        
 
-      <div className="auth-right">
-        <h1 className="text-4xl">Register</h1>
-      <h3 className="text-2xl text-gray-600">Create your account</h3>
-      <br/>  
-        <form onSubmit={handleSubmit}>
-          <Input
-            label="Name"
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            placeholder="Enter your name"
-            error={errors.name}
-          />
+        <div className="auth-right">
+          <h1 className="text-4xl">Register</h1>
+          <h3 className="text-2xl text-gray-600">Create your account</h3>
+          <br/>  
+          <form onSubmit={handleSubmit}>
+            <Input
+              label="Name"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              placeholder="Enter your name"
+              error={errors.name}
+            />
 
-          <Input
-            label="Email"
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-            placeholder="Enter your email"
-            error={errors.email}
-          />
+            <Input
+              label="Email"
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+              placeholder="Enter your email"
+              error={errors.email}
+            />
 
-          <Input
-            label="Password"
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            placeholder="Enter your password"
-            error={errors.password}
-          />
+            <Input
+              label="Password"
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Enter your password"
+              error={errors.password}
+            />
 
-          {statusMessage && <p style={{ color: "red" }}>{statusMessage}</p>}
+            {statusMessage && <p style={{ color: "red" }}>{statusMessage}</p>}
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Registering..." : "Register"}
-          </button>
-        </form>
+            <button type="submit" disabled={loading}>
+              {loading ? "Registering..." : "Register"}
+            </button>
+          </form>
 
-        <div className="auth-links">
-          <p>
-            Already have an account? <Link to="/login">Login</Link>
-          </p>
+          <div className="auth-links">
+            <p>
+              Already have an account? <Link to="/login">Login</Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
