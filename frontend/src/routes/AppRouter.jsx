@@ -4,7 +4,7 @@ import Login from "../Pages/Auth/Login";
 import Register from "../Pages/Auth/Register";
 import ForgotPassword from "../Pages/Auth/ForgotPassword";
 import ResetPassword from "../Pages/Auth/ResetPassword";
-import Tasks from "../Pages/Tasks/Tasks";
+
 import Projects from "../Pages/Projects/Projects";
 import ProjectBoard from "../Pages/Projects/ProjectBoard";
 import PerToDo from "../Pages/PerToDo";
@@ -71,14 +71,8 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/tasks"
-          element={
-            <ProtectedRoute>
-              <Tasks />
-            </ProtectedRoute>
-          }
-        />
+        
+       
         <Route
           path="/projects"
           element={

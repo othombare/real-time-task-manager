@@ -17,7 +17,7 @@ import { useProjects } from "../Projects/useProjects";
 
 const navItems = [
   { icon: LayoutDashboardIcon, label: "Dashboard", id: "dashboard", path: "/dashboard" },
-  { icon: CheckSquareIcon, label: "Tasks", id: "tasks", path: "/tasks" },
+ 
   { icon: BriefcaseBusinessIcon, label: "Projects", id: "projects", path: "/projects" },
   { icon: UsersIcon, label: "Team Members", id: "team-members", path: "/team-members" },
   { icon: BarChart3Icon, label: "Analytics", id: "analytics", path: "/analytics" },
