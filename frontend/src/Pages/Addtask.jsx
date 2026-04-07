@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarIcon, PlusIcon, XIcon } from "lucide-react";
+import { CalendarIcon, PlusIcon } from "lucide-react";
+import Button from "../components/Button";
+import Input from "../components/Input";
+import Modal from "../components/Modal";
 
 const initialFormState = {
   title: "",
@@ -122,76 +125,43 @@ function Addtask({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-[28px] border border-border bg-card shadow-2xl shadow-slate-950/10">
-        <div className="flex items-start justify-between border-b border-border px-6 py-5">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">Create</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight">Add New Task</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Add a new item and send it straight into your board.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="rounded-xl border border-border p-2 text-muted-foreground transition hover:border-primary/30 hover:text-primary"
-            aria-label="Close add task form"
-          >
-            <XIcon size={18} />
-          </button>
-        </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      badge="Create"
+      title="Add New Task"
+      description="Add a new item and send it straight into your board."
+    >
+        <form onSubmit={handleSubmit} className="space-y-5 overflow-y-auto px-6 py-6">
+          <Input
+            label="Task title"
+            name="title"
+            value={form.title}
+            onChange={handleChange}
+            placeholder="Write a clear task title"
+            required
+          />
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold" htmlFor="task-title">
-              Task title
-            </label>
-            <input
-              id="task-title"
-              name="title"
-              type="text"
-              value={form.title}
-              onChange={handleChange}
-              placeholder="Write a clear task title"
-              className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-              required
-            />
-          </div>
+          <Input
+            label="Description"
+            name="description"
+            value={form.description}
+            onChange={handleChange}
+            placeholder="Add context, acceptance notes, or handoff details."
+            hint="Optional"
+            multiline
+          />
 
-          <div className="space-y-2">
-            <label className="text-sm font-semibold" htmlFor="task-description">
-              Description
-              <span className="ml-2 text-xs font-medium text-muted-foreground">
-                Optional
-              </span>
-            </label>
-            <textarea
-              id="task-description"
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              placeholder="Add context, acceptance notes, or handoff details."
-              className="min-h-24 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold" htmlFor="task-notes">
-              Notes
-              <span className="ml-2 text-xs font-medium text-muted-foreground">
-                Optional
-              </span>
-            </label>
-            <textarea
-              id="task-notes"
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              placeholder="Add reminders, blockers, or small implementation notes."
-              className="min-h-20 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-            />
-          </div>
+          <Input
+            label="Notes"
+            name="notes"
+            value={form.notes}
+            onChange={handleChange}
+            placeholder="Add reminders, blockers, or small implementation notes."
+            hint="Optional"
+            multiline
+            rows={3}
+          />
 
           {showProjectField && (
             <div className="space-y-2">
@@ -201,15 +171,13 @@ function Addtask({
                   Optional
                 </span>
               </label>
-              <input
-                id="task-project-name"
+              <Input
                 name="projectName"
                 type="text"
                 list="project-name-options"
                 value={form.projectName}
                 onChange={handleChange}
                 placeholder="TaskVue Web App"
-                className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
               {projectOptions.length > 0 && (
                 <datalist id="project-name-options">
@@ -332,24 +300,22 @@ function Addtask({
           </div>
 
           <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
-            <button
+            <Button
               type="button"
               onClick={handleClose}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
+              variant="secondary"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
             >
               <PlusIcon size={16} />
               Add task
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

@@ -14,6 +14,7 @@ import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { StatCard } from "./StatCard";
 import { KanbanColumn } from "./KanbanColumn";
 import { useProjects } from "../Projects/useProjects";
+import { getInitials, hasProjectAccess, resolveMemberLabel } from "../Projects/projectData";
 
 const stats = [
   {
@@ -58,29 +59,16 @@ const dashboardColumns = [
     tasks: [],
   },
   {
+    title: "In Review",
+    color: "bg-amber-500",
+    tasks: [],
+  },
+  {
     title: "Done",
     color: "bg-emerald-500",
     tasks: [],
   },
 ];
-
-const getUserInitials = (name) =>
-  (name || "OJ")
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
-const memberNameMap = {
-  OJ: "Onkar J.",
-  AK: "Aarav K.",
-  SK: "Sakshi K.",
-  AN: "Anika N.",
-  RJ: "Riya J.",
-  VK: "Vivek K.",
-  MK: "Meera K.",
-};
 
 const getGreetingByTime = () => {
   const hour = new Date().getHours();
@@ -93,19 +81,28 @@ const getGreetingByTime = () => {
 
 function Home() {
   const { profile } = useCurrentUser();
-  const { projects } = useProjects();
+  const { projects, updateProjectTask } = useProjects();
   const firstName = profile?.name?.split(" ")[0] || "there";
-  const userInitials = getUserInitials(profile?.name);
+  const displayName = profile?.name || "Workspace User";
+  const userInitials = getInitials(displayName || "OJ");
   const greeting = getGreetingByTime();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("To Do");
   const [personalColumns, setPersonalColumns] = useState(dashboardColumns);
+  const visibleProjects = useMemo(
+    () => projects.filter((project) => hasProjectAccess(project, userInitials, displayName)),
+    [displayName, projects, userInitials]
+  );
   const projectOptions = useMemo(
-    () => projects.map((project) => project.title),
-    [projects]
+    () => visibleProjects.map((project) => project.title),
+    [visibleProjects]
   );
   const assigneeOptions = useMemo(() => {
-    const uniqueMembers = new Set(projects.flatMap((project) => project.members));
+    const uniqueMembers = new Set(visibleProjects.flatMap((project) => project.members));
+    const directory = visibleProjects.reduce(
+      (lookup, project) => ({ ...lookup, ...(project.memberDirectory || {}) }),
+      {}
+    );
     uniqueMembers.add(userInitials);
 
     return Array.from(uniqueMembers)
@@ -114,10 +111,10 @@ function Home() {
         value: member,
         label:
           member === userInitials
-            ? `${memberNameMap[member] || member} (You)`
-            : memberNameMap[member] || member,
+            ? `${resolveMemberLabel(member, directory)} (You)`
+            : resolveMemberLabel(member, directory),
       }));
-  }, [projects, userInitials]);
+  }, [userInitials, visibleProjects]);
 
   const boardColumns = useMemo(() => {
     const assignedProjectColumns = dashboardColumns.map((column) => ({
@@ -125,7 +122,7 @@ function Home() {
       tasks: [],
     }));
 
-    projects.forEach((project) => {
+    visibleProjects.forEach((project) => {
       project.board.forEach((column) => {
         const targetColumn = assignedProjectColumns.find(
           (item) => item.title === column.title
@@ -138,10 +135,11 @@ function Home() {
         const matchingTasks = column.tasks
           .filter((task) => task.assignee.includes(userInitials))
           .map((task) => ({
-            ...task,
-            projectName: project.title,
-            createdBy: task.createdBy || project.owner || "Workspace",
-          }));
+                ...task,
+                projectName: project.title,
+                projectSlug: project.slug,
+                createdBy: task.createdBy || project.owner || "Workspace",
+              }));
 
         targetColumn.tasks.push(...matchingTasks);
       });
@@ -157,7 +155,7 @@ function Home() {
         tasks: [...(personalColumn?.tasks ?? []), ...column.tasks],
       };
     });
-  }, [personalColumns, projects, userInitials]);
+  }, [personalColumns, userInitials, visibleProjects]);
 
   const taskStats = useMemo(() => {
     const allTasks = boardColumns.flatMap((column) => column.tasks);
@@ -221,6 +219,20 @@ function Home() {
     setIsAddTaskOpen(true);
   };
 
+  const handleUpdateTask = (taskId, updates, projectSlug) => {
+    if (projectSlug) {
+      updateProjectTask(projectSlug, taskId, updates);
+      return;
+    }
+
+    setPersonalColumns((currentColumns) =>
+      currentColumns.map((column) => ({
+        ...column,
+        tasks: column.tasks.map((task) => (task.id === taskId ? { ...task, ...updates } : task)),
+      }))
+    );
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-10">
@@ -229,7 +241,7 @@ function Home() {
           <p className="text-muted-foreground font-medium flex items-center gap-2">
             Here&apos;s what&apos;s assigned to you across the workspace.
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold ring-1 ring-primary/20">
-              <ClockIcon size={12} /> Upcoming Sync in 20m
+              <ClockIcon size={12} /> Last synced 20m ago
             </span>
           </p>
         </section>
@@ -260,7 +272,7 @@ function Home() {
                 New Task
               </button>
               <div className="h-4 w-[1px] bg-border mx-1" />
-              <p className="text-xs text-muted-foreground font-medium hidden sm:block">Last edited: 2 mins ago</p>
+              <p className="text-xs text-muted-foreground font-medium hidden sm:block">Last synced 2 mins ago</p>
             </div>
           </div>
 
@@ -270,6 +282,10 @@ function Home() {
                   key={idx}
                   {...column}
                   onAddTask={openAddTaskModal}
+                  onUpdateTask={(taskId, updates) => {
+                    const matchedTask = column.tasks.find((task) => task.id === taskId);
+                    handleUpdateTask(taskId, updates, matchedTask?.projectSlug);
+                  }}
                 />
               ))}
             </div>

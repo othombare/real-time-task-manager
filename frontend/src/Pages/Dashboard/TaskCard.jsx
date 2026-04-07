@@ -107,7 +107,7 @@ export function TaskCard({
       >
         <div className="flex items-center justify-between">
           <span className={cn(
-            "text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border",
+            "text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border",
             priorityColors[priority.toLowerCase()]
           )}>
             {priority}
@@ -129,13 +129,13 @@ export function TaskCard({
         </h4>
 
         {projectName && (
-          <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
             <FolderKanbanIcon size={12} className="text-primary/70" />
             {projectName}
           </p>
         )}
 
-        <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
           <UserIcon size={12} className="text-primary/70" />
           Created by {resolvedCreatorName}
         </p>
@@ -153,7 +153,7 @@ export function TaskCard({
                 event.stopPropagation()
                 openDetails("comments")
               }}
-              className="text-[10px] flex items-center gap-1 hover:text-foreground transition-colors"
+              className="text-xs flex items-center gap-1 hover:text-foreground transition-colors"
             >
               <MessageSquareIcon size={12} /> {commentCount}
             </button>
@@ -163,7 +163,7 @@ export function TaskCard({
                 event.stopPropagation()
                 openDetails("attachments")
               }}
-              className="text-[10px] flex items-center gap-1 hover:text-foreground transition-colors"
+              className="text-xs flex items-center gap-1 hover:text-foreground transition-colors"
             >
               <PaperclipIcon size={12} /> {attachmentCount}
             </button>
@@ -192,7 +192,7 @@ export function TaskCard({
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-3">
                   <span className={cn(
-                    "inline-flex text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-full border",
+                    "inline-flex text-xs uppercase font-bold tracking-wider px-2 py-1 rounded-full border",
                     priorityColors[priority.toLowerCase()]
                   )}>
                     {priority}

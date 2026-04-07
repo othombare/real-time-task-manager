@@ -10,11 +10,73 @@ export const projectBoardTemplate = [
     tasks: [],
   },
   {
+    title: "In Review",
+    color: "bg-amber-500",
+    tasks: [],
+  },
+  {
     title: "Done",
     color: "bg-emerald-500",
     tasks: [],
   },
 ];
+
+export const memberNameMap = {
+  OJ: "Onkar J.",
+  AK: "Aarav K.",
+  SK: "Sakshi K.",
+  AN: "Anika N.",
+  RJ: "Riya J.",
+  VK: "Vivek K.",
+  MK: "Meera K.",
+};
+
+export const getInitials = (value = "") =>
+  value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+export const createProjectSlug = (title) =>
+  title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+export const generateJoinCode = (title = "") => {
+  const prefix = createProjectSlug(title).replace(/-/g, "").slice(0, 4).toUpperCase() || "PROJ";
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${prefix}-${suffix}`;
+};
+
+export const buildMemberDirectory = (members = []) =>
+  members.reduce((directory, member) => {
+    directory[member] = memberNameMap[member] || member;
+    return directory;
+  }, {});
+
+export const resolveMemberLabel = (memberId, memberDirectory = {}) =>
+  memberDirectory[memberId] || memberNameMap[memberId] || memberId;
+
+export const hasProjectAccess = (project, memberId, displayName) => {
+  if (!project) {
+    return false;
+  }
+
+  const normalizedName = displayName?.trim().toLowerCase();
+  const normalizedOwner = project.owner?.trim().toLowerCase();
+  const normalizedAdmin = project.admin?.trim().toLowerCase();
+
+  return (
+    Boolean(memberId && project.members.includes(memberId)) ||
+    Boolean(normalizedName && normalizedName === normalizedOwner) ||
+    Boolean(normalizedName && normalizedName === normalizedAdmin)
+  );
+};
 
 export const seedProjects = [
   {
@@ -25,7 +87,10 @@ export const seedProjects = [
     status: "On Track",
     stage: "Sprint 3",
     owner: "Onkar",
+    admin: "Onkar",
+    joinCode: "TASK-A1B2",
     members: ["OJ", "AK", "SK"],
+    memberDirectory: buildMemberDirectory(["OJ", "AK", "SK"]),
     board: [
       {
         title: "To Do",
@@ -38,7 +103,9 @@ export const seedProjects = [
             assignee: ["OJ", "AK"],
             dueDate: "Apr 6",
             comments: 3,
+            commentsList: [],
             attachments: 1,
+            attachmentFiles: [],
           },
           {
             id: 102,
@@ -47,7 +114,9 @@ export const seedProjects = [
             assignee: ["SK"],
             dueDate: "Apr 8",
             comments: 1,
+            commentsList: [],
             attachments: 0,
+            attachmentFiles: [],
           },
         ],
       },
@@ -62,7 +131,26 @@ export const seedProjects = [
             assignee: ["OJ", "SK"],
             dueDate: "Apr 5",
             comments: 5,
+            commentsList: [],
             attachments: 2,
+            attachmentFiles: [],
+          },
+        ],
+      },
+      {
+        title: "In Review",
+        color: "bg-amber-500",
+        tasks: [
+          {
+            id: 105,
+            title: "Validate reusable UI component styling across task flows",
+            priority: "High",
+            assignee: ["OJ", "SK"],
+            dueDate: "Apr 9",
+            comments: 2,
+            commentsList: [],
+            attachments: 1,
+            attachmentFiles: [],
           },
         ],
       },
@@ -77,7 +165,9 @@ export const seedProjects = [
             assignee: ["AK"],
             dueDate: "Apr 2",
             comments: 2,
+            commentsList: [],
             attachments: 1,
+            attachmentFiles: [],
           },
         ],
       },
@@ -91,7 +181,10 @@ export const seedProjects = [
     status: "Planning",
     stage: "Discovery",
     owner: "Anika",
+    admin: "Anika",
+    joinCode: "CLIE-C3D4",
     members: ["AN", "RJ", "VK"],
+    memberDirectory: buildMemberDirectory(["AN", "RJ", "VK"]),
     board: [
       {
         title: "To Do",
@@ -104,7 +197,9 @@ export const seedProjects = [
             assignee: ["AN"],
             dueDate: "Apr 9",
             comments: 4,
+            commentsList: [],
             attachments: 0,
+            attachmentFiles: [],
           },
           {
             id: 202,
@@ -113,7 +208,9 @@ export const seedProjects = [
             assignee: ["RJ"],
             dueDate: "Apr 10",
             comments: 2,
+            commentsList: [],
             attachments: 0,
+            attachmentFiles: [],
           },
         ],
       },
@@ -128,7 +225,26 @@ export const seedProjects = [
             assignee: ["VK", "AN"],
             dueDate: "Apr 7",
             comments: 6,
+            commentsList: [],
             attachments: 3,
+            attachmentFiles: [],
+          },
+        ],
+      },
+      {
+        title: "In Review",
+        color: "bg-amber-500",
+        tasks: [
+          {
+            id: 205,
+            title: "Review onboarding copy and form simplification proposals",
+            priority: "Medium",
+            assignee: ["AN", "RJ"],
+            dueDate: "Apr 8",
+            comments: 3,
+            commentsList: [],
+            attachments: 1,
+            attachmentFiles: [],
           },
         ],
       },
@@ -143,7 +259,9 @@ export const seedProjects = [
             assignee: ["RJ"],
             dueDate: "Apr 3",
             comments: 1,
+            commentsList: [],
             attachments: 0,
+            attachmentFiles: [],
           },
         ],
       },
@@ -157,7 +275,10 @@ export const seedProjects = [
     status: "In Progress",
     stage: "Build",
     owner: "Sakshi",
+    admin: "Sakshi",
+    joinCode: "ANLY-E5F6",
     members: ["SK", "MK", "OJ"],
+    memberDirectory: buildMemberDirectory(["SK", "MK", "OJ"]),
     board: [
       {
         title: "To Do",
@@ -170,7 +291,9 @@ export const seedProjects = [
             assignee: ["MK"],
             dueDate: "Apr 11",
             comments: 0,
+            commentsList: [],
             attachments: 1,
+            attachmentFiles: [],
           },
         ],
       },
@@ -185,7 +308,9 @@ export const seedProjects = [
             assignee: ["SK", "OJ"],
             dueDate: "Apr 6",
             comments: 7,
+            commentsList: [],
             attachments: 2,
+            attachmentFiles: [],
           },
           {
             id: 303,
@@ -194,7 +319,26 @@ export const seedProjects = [
             assignee: ["OJ"],
             dueDate: "Apr 8",
             comments: 2,
+            commentsList: [],
             attachments: 1,
+            attachmentFiles: [],
+          },
+        ],
+      },
+      {
+        title: "In Review",
+        color: "bg-amber-500",
+        tasks: [
+          {
+            id: 305,
+            title: "Review trend cards and executive reporting layout with stakeholders",
+            priority: "High",
+            assignee: ["SK"],
+            dueDate: "Apr 10",
+            comments: 4,
+            commentsList: [],
+            attachments: 2,
+            attachmentFiles: [],
           },
         ],
       },
@@ -209,7 +353,9 @@ export const seedProjects = [
             assignee: ["SK"],
             dueDate: "Apr 1",
             comments: 3,
+            commentsList: [],
             attachments: 0,
+            attachmentFiles: [],
           },
         ],
       },
@@ -220,19 +366,19 @@ export const seedProjects = [
 export const cloneProjectBoard = (board = projectBoardTemplate) =>
   board.map((column) => ({
     ...column,
-    tasks: [...column.tasks],
+    tasks: column.tasks.map((task) => ({
+      ...task,
+      assignee: [...(task.assignee || [])],
+      assigneeNames: [...(task.assigneeNames || [])],
+      commentsList: [...(task.commentsList || [])],
+      attachmentFiles: [...(task.attachmentFiles || [])],
+    })),
   }));
 
 export const cloneProjects = (projects = seedProjects) =>
   projects.map((project) => ({
     ...project,
     members: [...project.members],
+    memberDirectory: { ...(project.memberDirectory || buildMemberDirectory(project.members)) },
     board: cloneProjectBoard(project.board),
   }));
-
-export const createProjectSlug = (title) =>
-  title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");

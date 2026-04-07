@@ -1,11 +1,44 @@
-import { ArrowRightIcon, BriefcaseBusinessIcon, FolderKanbanIcon, PaperclipIcon, TrendingUpIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  ArrowRightIcon,
+  BriefcaseBusinessIcon,
+  FolderInputIcon,
+  FolderKanbanIcon,
+  KeyRoundIcon,
+  PaperclipIcon,
+  TrendingUpIcon,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { getInitials, hasProjectAccess } from "./projectData";
 import { useProjects } from "./useProjects";
 
 function Projects() {
   const navigate = useNavigate();
-  const { projects } = useProjects();
+  const { profile } = useCurrentUser();
+  const { projects, joinProjectByCode } = useProjects();
+  const [joinCode, setJoinCode] = useState("");
+  const [joinFeedback, setJoinFeedback] = useState("");
+  const displayName = profile?.name || "Workspace User";
+  const memberId = getInitials(displayName);
+  const visibleProjects = useMemo(
+    () => projects.filter((project) => hasProjectAccess(project, memberId, displayName)),
+    [displayName, memberId, projects]
+  );
+
+  const handleJoinProject = () => {
+    const result = joinProjectByCode(joinCode, displayName);
+
+    if (!result.success) {
+      setJoinFeedback(result.error);
+      return;
+    }
+
+    setJoinCode("");
+    setJoinFeedback(`Joined ${result.projectTitle}. Redirecting you now.`);
+    navigate(`/projects/${result.projectSlug}`);
+  };
 
   return (
     <DashboardLayout>
@@ -24,15 +57,15 @@ function Projects() {
               <BriefcaseBusinessIcon size={18} />
             </div>
             <div>
-              <p className="text-sm font-semibold">{projects.length} active projects</p>
-              <p className="text-xs text-muted-foreground">Open any project to manage its board</p>
+              <p className="text-sm font-semibold">{visibleProjects.length} active projects</p>
+              <p className="text-xs text-muted-foreground">Projects you can access from this workspace</p>
             </div>
           </div>
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[1.5fr_0.8fr]">
           <div className="space-y-4">
-            {projects.map((project) => (
+            {visibleProjects.map((project) => (
               <button
                 key={project.id}
                 type="button"
@@ -57,6 +90,11 @@ function Projects() {
                 </div>
               </button>
             ))}
+            {visibleProjects.length === 0 && (
+              <div className="rounded-3xl border border-dashed border-border bg-card p-6 text-sm text-muted-foreground shadow-sm">
+                No projects are linked to you yet. Use a group code on the right to join one.
+              </div>
+            )}
           </div>
 
           <aside className="space-y-4">
@@ -92,8 +130,54 @@ function Projects() {
                 <h3 className="font-semibold">Boards Ready</h3>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Open any project card to see its Jira-style board with `To Do`, `In Progress`, and `Done` columns.
+                Open any project card to see its Jira-style board with `To Do`, `In Progress`, `In Review`, and `Done` columns.
               </p>
+            </div>
+
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+                  <FolderInputIcon size={18} />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Take Me to Project</h3>
+                  <p className="text-xs text-muted-foreground">Enter a group code to join a project.</p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className="relative">
+                  <KeyRoundIcon
+                    size={16}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <input
+                    type="text"
+                    value={joinCode}
+                    onChange={(event) => {
+                      setJoinCode(event.target.value.toUpperCase());
+                      setJoinFeedback("");
+                    }}
+                    placeholder="Enter group code"
+                    className="h-12 w-full rounded-2xl border border-input bg-background pl-11 pr-4 text-sm uppercase outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleJoinProject}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                >
+                  Join project
+                </button>
+                <p className="text-xs text-muted-foreground">
+                  Teammates can share the code generated during project creation.
+                </p>
+                {joinFeedback && (
+                  <p className="rounded-2xl bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
+                    {joinFeedback}
+                  </p>
+                )}
+              </div>
             </div>
           </aside>
         </section>

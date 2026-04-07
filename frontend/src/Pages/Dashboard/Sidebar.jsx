@@ -14,6 +14,8 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { useProjects } from "../Projects/useProjects";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { getInitials, hasProjectAccess } from "../Projects/projectData";
 
 const navItems = [
   { icon: LayoutDashboardIcon, label: "Dashboard", id: "dashboard", path: "/dashboard" },
@@ -31,6 +33,11 @@ export function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { projects } = useProjects();
+  const { profile } = useCurrentUser();
+  const displayName = profile?.name || "Workspace User";
+  const visibleProjects = projects.filter((project) =>
+    hasProjectAccess(project, getInitials(displayName), displayName)
+  );
 
   return (
       <motion.aside
@@ -141,7 +148,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
                       exit={{ opacity: 0, height: 0 }}
                       className="ml-6 space-y-1 overflow-hidden border-l border-border/80 pl-4"
                     >
-                      {projects.map((project) => {
+                      {visibleProjects.map((project) => {
                         const isProjectActive = location.pathname === `/projects/${project.slug}`;
 
                         return (

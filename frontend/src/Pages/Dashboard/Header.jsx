@@ -13,6 +13,7 @@ import { logout } from "../../store/authSlice";
 import { useAppDispatch } from "../../store/hooks";
 import CreateProjectModal from "../Projects/CreateProjectModal";
 import { useProjects } from "../Projects/useProjects";
+import { getInitials, resolveMemberLabel } from "../Projects/projectData";
 
 export function Header() {
   const navigate = useNavigate();
@@ -35,10 +36,22 @@ export function Header() {
     };
 
   const handleCreateProject = (projectData) => {
+    const creatorId = getInitials(displayName) || initials;
+    const selectedMembers = Array.from(new Set([creatorId, ...(projectData.members || [])]));
+
     const newProject = createProject({
       ...projectData,
       owner: displayName,
+      admin: displayName,
       stage: "Planning",
+      members: selectedMembers,
+      memberDirectory: selectedMembers.reduce(
+        (directory, memberId) => ({
+          ...directory,
+          [memberId]: memberId === creatorId ? displayName : resolveMemberLabel(memberId),
+        }),
+        {}
+      ),
     });
     navigate(`/projects/${newProject.slug}`);
   };

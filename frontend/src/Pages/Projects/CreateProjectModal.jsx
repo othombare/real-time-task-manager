@@ -1,15 +1,27 @@
 import { useMemo, useRef, useState } from "react";
-import { CheckIcon, ChevronDownIcon, FolderPlusIcon, PaperclipIcon, UsersIcon, XIcon } from "lucide-react";
-import { seedProjects } from "./projectData";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  FolderPlusIcon,
+  KeyRoundIcon,
+  PaperclipIcon,
+  RefreshCwIcon,
+  UsersIcon,
+} from "lucide-react";
+import Button from "../../components/Button";
+import Input from "../../components/Input";
+import Modal from "../../components/Modal";
+import { generateJoinCode, memberNameMap, seedProjects } from "./projectData";
 
-const initialFormState = {
+const createInitialFormState = () => ({
   title: "",
   description: "",
   members: [],
-};
+  joinCode: generateJoinCode(""),
+});
 
 function CreateProjectModal({ isOpen, onClose, onSubmit }) {
-  const [form, setForm] = useState(initialFormState);
+  const [form, setForm] = useState(createInitialFormState);
   const [isMembersOpen, setIsMembersOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const attachmentInputRef = useRef(null);
@@ -41,7 +53,7 @@ function CreateProjectModal({ isOpen, onClose, onSubmit }) {
   };
 
   const handleClose = () => {
-    setForm(initialFormState);
+    setForm(createInitialFormState());
     setSelectedFiles([]);
     setIsMembersOpen(false);
     if (attachmentInputRef.current) {
@@ -56,8 +68,9 @@ function CreateProjectModal({ isOpen, onClose, onSubmit }) {
     const title = form.title.trim();
     const description = form.description.trim();
     const members = form.members;
+    const joinCode = form.joinCode.trim().toUpperCase();
 
-    if (!title || !description || members.length === 0) {
+    if (!title || !description || !joinCode) {
       return;
     }
 
@@ -65,6 +78,7 @@ function CreateProjectModal({ isOpen, onClose, onSubmit }) {
       title,
       description,
       members,
+      joinCode,
       attachments: selectedFiles.length,
       attachmentFiles: selectedFiles.map((file) => file.name),
     });
@@ -73,61 +87,37 @@ function CreateProjectModal({ isOpen, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-[28px] border border-border bg-card shadow-2xl shadow-slate-950/10">
-        <div className="flex items-start justify-between border-b border-border px-6 py-5">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">Create</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight">New Project</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create a project and give it its own Jira-style board.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="rounded-xl border border-border p-2 text-muted-foreground transition hover:border-primary/30 hover:text-primary"
-            aria-label="Close create project form"
-          >
-            <XIcon size={18} />
-          </button>
-        </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      badge="Create"
+      title="New Project"
+      description="Create a project and give it its own Jira-style board."
+    >
+        <form onSubmit={handleSubmit} className="space-y-5 overflow-y-auto px-6 py-6">
+          <Input
+            label="Project title"
+            name="title"
+            value={form.title}
+            onChange={handleChange}
+            placeholder="TaskVue Mobile App"
+            required
+          />
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-6">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold" htmlFor="project-title">
-              Project title
-            </label>
-            <input
-              id="project-title"
-              name="title"
-              type="text"
-              value={form.title}
-              onChange={handleChange}
-              placeholder="TaskVue Mobile App"
-              className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold" htmlFor="project-description">
-              Description
-            </label>
-            <textarea
-              id="project-description"
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              placeholder="Summarize the initiative, scope, or delivery goal."
-              className="min-h-28 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-              required
-            />
-          </div>
+          <Input
+            label="Description"
+            name="description"
+            value={form.description}
+            onChange={handleChange}
+            placeholder="Summarize the initiative, scope, or delivery goal."
+            multiline
+            required
+          />
 
           <div className="space-y-2">
             <label className="text-sm font-semibold" htmlFor="project-members-trigger">
               Team members
+              <span className="ml-2 text-xs font-medium text-muted-foreground">Optional</span>
             </label>
             <div className="relative space-y-3">
               <UsersIcon
@@ -163,7 +153,7 @@ function CreateProjectModal({ isOpen, onClose, onSubmit }) {
                         onClick={() => toggleMember(member)}
                         className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition hover:bg-muted"
                       >
-                        <span>{member}</span>
+                        <span>{memberNameMap[member] || member}</span>
                         <span className={`flex h-5 w-5 items-center justify-center rounded-md border ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-transparent"}`}>
                           <CheckIcon size={12} />
                         </span>
@@ -176,24 +166,56 @@ function CreateProjectModal({ isOpen, onClose, onSubmit }) {
               {form.members.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {form.members.map((member) => (
-                    <span
-                      key={member}
-                      className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
-                    >
-                      {member}
+                    <span key={member} className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                      {memberNameMap[member] || member}
                       <button
                         type="button"
                         onClick={() => toggleMember(member)}
                         className="text-primary/80 transition hover:text-primary"
                         aria-label={`Remove ${member}`}
                       >
-                        <XIcon size={12} />
+                        x
                       </button>
                     </span>
                   ))}
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold" htmlFor="project-join-code">
+              Group code
+            </label>
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="relative">
+                <KeyRoundIcon
+                  size={16}
+                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                  name="joinCode"
+                  type="text"
+                  value={form.joinCode}
+                  onChange={handleChange}
+                  placeholder="TASK-A1B2"
+                  inputClassName="pl-11 uppercase"
+                  required
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={() => setForm((current) => ({ ...current, joinCode: generateJoinCode(current.title) }))}
+                variant="secondary"
+                size="lg"
+              >
+                <RefreshCwIcon size={14} />
+                Generate
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Share this code so teammates can use &quot;Take me to project&quot; to join from the Projects page.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -227,24 +249,22 @@ function CreateProjectModal({ isOpen, onClose, onSubmit }) {
           </div>
 
           <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
-            <button
+            <Button
               type="button"
               onClick={handleClose}
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
+              variant="secondary"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
             >
               <FolderPlusIcon size={16} />
               Create project
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

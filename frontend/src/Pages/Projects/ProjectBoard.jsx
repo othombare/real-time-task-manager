@@ -2,7 +2,10 @@ import { useMemo, useState } from "react";
 import {
   ArrowLeftIcon,
   BriefcaseBusinessIcon,
+  CheckIcon,
   CheckCircle2Icon,
+  CopyIcon,
+  KeyRoundIcon,
   LayersIcon,
   PlusIcon,
   UsersIcon,
@@ -11,28 +14,22 @@ import { useNavigate, useParams } from "react-router-dom";
 import Addtask from "../Addtask";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { KanbanColumn } from "../Dashboard/KanbanColumn";
-import { cloneProjectBoard, projectBoardTemplate } from "./projectData";
+import { cloneProjectBoard, getInitials, hasProjectAccess, projectBoardTemplate, resolveMemberLabel } from "./projectData";
 import { useProjects } from "./useProjects";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-
-const memberNameMap = {
-  OJ: "Onkar J.",
-  AK: "Aarav K.",
-  SK: "Sakshi K.",
-  AN: "Anika N.",
-  RJ: "Riya J.",
-  VK: "Vivek K.",
-  MK: "Meera K.",
-};
 
 function ProjectBoard() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
   const { profile } = useCurrentUser();
-  const { getProjectBySlug, updateProjectBoard, updateProjectTask } = useProjects();
+  const { getProjectBySlug, updateProjectBoard, updateProjectTask, addProjectMember } = useProjects();
   const project = getProjectBySlug(projectSlug);
+  const displayName = profile?.name || "Workspace User";
+  const currentMemberId = getInitials(displayName);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("To Do");
+  const [newMemberName, setNewMemberName] = useState("");
+  const [memberFeedback, setMemberFeedback] = useState("");
   const boardColumns = useMemo(
     () => (project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)),
     [project]
@@ -41,7 +38,7 @@ function ProjectBoard() {
     () =>
       (project?.members ?? []).map((member) => ({
         value: member,
-        label: memberNameMap[member] || member,
+        label: resolveMemberLabel(member, project?.memberDirectory),
       })),
     [project]
   );
@@ -53,6 +50,7 @@ function ProjectBoard() {
       total: allTasks.length,
       completed: boardColumns.find((column) => column.title === "Done")?.tasks.length || 0,
       inProgress: boardColumns.find((column) => column.title === "In Progress")?.tasks.length || 0,
+      inReview: boardColumns.find((column) => column.title === "In Review")?.tasks.length || 0,
     };
   }, [boardColumns]);
 
@@ -85,13 +83,35 @@ function ProjectBoard() {
     updateProjectTask(projectSlug, taskId, updates);
   };
 
-  if (!project) {
+  const handleAddMember = () => {
+    const result = addProjectMember(projectSlug, newMemberName);
+    setMemberFeedback(result.success ? `${result.memberName} was added to the project team.` : result.error);
+
+    if (result.success) {
+      setNewMemberName("");
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!project?.joinCode) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(project.joinCode);
+      setMemberFeedback(`Copied ${project.joinCode} to the clipboard.`);
+    } catch {
+      setMemberFeedback(`Share this code manually: ${project.joinCode}`);
+    }
+  };
+
+  if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
     return (
       <DashboardLayout>
         <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
           <h1 className="text-2xl font-bold tracking-tight">Project not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            The project board you requested is not available right now.
+            The project board you requested is not available for your current account.
           </p>
           <button
             type="button"
@@ -137,7 +157,7 @@ function ProjectBoard() {
 
         <section className="grid gap-5 xl:grid-cols-[1.55fr_0.8fr]">
           <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="rounded-2xl bg-primary/10 p-2 text-primary">
@@ -158,6 +178,18 @@ function ProjectBoard() {
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">In Progress</p>
                     <p className="text-2xl font-bold">{boardStats.inProgress}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-amber-500/10 p-2 text-amber-600">
+                    <CheckIcon size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">In Review</p>
+                    <p className="text-2xl font-bold">{boardStats.inReview}</p>
                   </div>
                 </div>
               </div>
@@ -206,31 +238,100 @@ function ProjectBoard() {
                 </div>
                 <div>
                   <h3 className="font-semibold">Project Team</h3>
-                  <p className="text-xs text-muted-foreground">Owner and active contributors.</p>
+                  <p className="text-xs text-muted-foreground">Admin, members, and invite access.</p>
                 </div>
               </div>
 
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Owner</span>
-                  <span className="font-semibold">{project.owner}</span>
+                  <span className="text-muted-foreground">Admin</span>
+                  <span className="font-semibold">{project.admin || project.owner}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Members</span>
                   <span className="font-semibold">{project.members.length}</span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Group code</span>
+                  <span className="font-semibold">{project.joinCode}</span>
+                </div>
               </div>
 
-              <div className="mt-4 flex -space-x-2">
+              <div className="mt-4 flex flex-wrap gap-3">
                 {project.members.map((member) => (
-                  <div
-                    key={member}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-card bg-primary text-xs font-bold text-primary-foreground"
-                  >
-                    {member}
+                  <div key={member} className="flex items-center gap-3 rounded-2xl bg-muted/50 px-3 py-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-card bg-primary text-xs font-bold text-primary-foreground">
+                      {member}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{resolveMemberLabel(member, project.memberDirectory)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {member === currentMemberId ? "You" : "Project member"}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
+
+              <div className="mt-5 space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+                <div className="flex items-center gap-2">
+                  <UsersIcon size={16} className="text-primary" />
+                  <h4 className="text-sm font-semibold">Add member</h4>
+                </div>
+                <input
+                  type="text"
+                  value={newMemberName}
+                  onChange={(event) => {
+                    setNewMemberName(event.target.value);
+                    setMemberFeedback("");
+                  }}
+                  placeholder="Enter teammate name"
+                  className="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddMember}
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                >
+                  <CheckIcon size={14} />
+                  Add to team
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+                <div className="flex items-center gap-2">
+                  <KeyRoundIcon size={16} className="text-primary" />
+                  <h4 className="text-sm font-semibold">Invite by code</h4>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl bg-background px-4 py-3 text-sm font-semibold">
+                  <span>{project.joinCode}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyCode}
+                    className="inline-flex items-center gap-2 text-xs font-semibold text-primary transition hover:text-primary/80"
+                  >
+                    <CopyIcon size={14} />
+                    Copy
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Teammates can join from the Projects page by entering this group code.
+                </p>
+              </div>
+
+              {memberFeedback && (
+                <p className="mt-4 rounded-2xl bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
+                  {memberFeedback}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+              <h3 className="font-semibold">Project Access</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                The creator is treated as the project admin, and task comments or attachments can be updated from the
+                task drawer by any project member on the frontend.
+              </p>
             </div>
           </aside>
         </section>

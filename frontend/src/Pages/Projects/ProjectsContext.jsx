@@ -1,5 +1,14 @@
 import { createContext, useCallback, useEffect, useMemo, useState } from "react";
-import { cloneProjectBoard, cloneProjects, createProjectSlug, projectBoardTemplate, seedProjects } from "./projectData";
+import {
+  buildMemberDirectory,
+  cloneProjectBoard,
+  cloneProjects,
+  createProjectSlug,
+  generateJoinCode,
+  getInitials,
+  projectBoardTemplate,
+  seedProjects,
+} from "./projectData";
 
 const STORAGE_KEY = "taskvue-projects";
 
@@ -7,6 +16,8 @@ const ProjectsContext = createContext({
   projects: [],
   createProject: () => null,
   getProjectBySlug: () => null,
+  joinProjectByCode: () => ({ success: false }),
+  addProjectMember: () => ({ success: false }),
   updateProjectBoard: () => {},
   updateProjectTask: () => {},
 });
@@ -33,7 +44,19 @@ export function ProjectsProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
   }, [projects]);
 
-  const createProject = useCallback(({ title, description, stage, owner, members, attachments = 0, attachmentFiles = [] }) => {
+  const createProject = useCallback(
+    ({
+      title,
+      description,
+      stage,
+      owner,
+      admin,
+      members,
+      memberDirectory = {},
+      joinCode,
+      attachments = 0,
+      attachmentFiles = [],
+    }) => {
     const baseSlug = createProjectSlug(title) || `project-${Date.now()}`;
     let candidateSlug = baseSlug;
     let suffix = 1;
@@ -43,6 +66,7 @@ export function ProjectsProvider({ children }) {
       candidateSlug = `${baseSlug}-${suffix}`;
     }
 
+    const uniqueMembers = Array.from(new Set(members || []));
     const newProject = {
       id: Date.now(),
       slug: candidateSlug,
@@ -51,7 +75,10 @@ export function ProjectsProvider({ children }) {
       status: "Planning",
       stage: stage || "Planning",
       owner: owner || "Workspace",
-      members,
+      admin: admin || owner || "Workspace",
+      joinCode: joinCode || generateJoinCode(title),
+      members: uniqueMembers,
+      memberDirectory: Object.keys(memberDirectory).length > 0 ? memberDirectory : buildMemberDirectory(uniqueMembers),
       attachments,
       attachmentFiles,
       board: cloneProjectBoard(projectBoardTemplate),
@@ -59,7 +86,103 @@ export function ProjectsProvider({ children }) {
 
     setProjects((currentProjects) => [newProject, ...currentProjects]);
     return newProject;
-  }, [projects]);
+    },
+    [projects]
+  );
+
+  const addProjectMember = useCallback((projectSlug, memberName) => {
+    const trimmedName = memberName.trim();
+
+    if (!trimmedName) {
+      return { success: false, error: "Enter a member name first." };
+    }
+
+    const memberId = getInitials(trimmedName);
+
+    if (!memberId) {
+      return { success: false, error: "Unable to create initials for that member." };
+    }
+
+    let result = { success: false, error: "Project not found." };
+
+    setProjects((currentProjects) =>
+      currentProjects.map((project) => {
+        if (project.slug !== projectSlug) {
+          return project;
+        }
+
+        if (project.members.includes(memberId)) {
+          result = { success: false, error: `${trimmedName} is already in this project.` };
+          return project;
+        }
+
+        result = { success: true, memberId, memberName: trimmedName };
+        return {
+          ...project,
+          members: [...project.members, memberId],
+          memberDirectory: {
+            ...(project.memberDirectory || {}),
+            [memberId]: trimmedName,
+          },
+        };
+      })
+    );
+
+    return result;
+  }, []);
+
+  const joinProjectByCode = useCallback((code, memberName) => {
+    const normalizedCode = code.trim().toUpperCase();
+    const trimmedName = memberName.trim();
+    const memberId = getInitials(trimmedName);
+
+    if (!normalizedCode) {
+      return { success: false, error: "Enter a project code first." };
+    }
+
+    if (!trimmedName || !memberId) {
+      return { success: false, error: "A valid user name is required to join a project." };
+    }
+
+    let joinedProject = null;
+    let error = "We couldn't find a project for that code.";
+
+    setProjects((currentProjects) =>
+      currentProjects.map((project) => {
+        if ((project.joinCode || "").toUpperCase() !== normalizedCode) {
+          return project;
+        }
+
+        joinedProject = project;
+        error = "";
+
+        if (project.members.includes(memberId)) {
+          return {
+            ...project,
+            memberDirectory: {
+              ...(project.memberDirectory || {}),
+              [memberId]: project.memberDirectory?.[memberId] || trimmedName,
+            },
+          };
+        }
+
+        return {
+          ...project,
+          members: [...project.members, memberId],
+          memberDirectory: {
+            ...(project.memberDirectory || {}),
+            [memberId]: trimmedName,
+          },
+        };
+      })
+    );
+
+    if (!joinedProject) {
+      return { success: false, error };
+    }
+
+    return { success: true, projectSlug: joinedProject.slug, projectTitle: joinedProject.title };
+  }, []);
 
   const updateProjectBoard = useCallback((projectSlug, updater) => {
     setProjects((currentProjects) =>
@@ -102,10 +225,12 @@ export function ProjectsProvider({ children }) {
       projects,
       createProject,
       getProjectBySlug: (slug) => projects.find((project) => project.slug === slug),
+      joinProjectByCode,
+      addProjectMember,
       updateProjectBoard,
       updateProjectTask,
     }),
-    [createProject, projects, updateProjectBoard, updateProjectTask]
+    [addProjectMember, createProject, joinProjectByCode, projects, updateProjectBoard, updateProjectTask]
   );
 
   return <ProjectsContext.Provider value={value}>{children}</ProjectsContext.Provider>;
