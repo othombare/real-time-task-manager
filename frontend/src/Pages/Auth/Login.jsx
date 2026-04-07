@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/Input";
+import Button from "../../components/Button";
 import loginBg from "../../assets/login-bg.png";
 import { getLastProtectedRoute } from "../../api/auth";
 import { login } from "../../store/authSlice";
@@ -30,7 +31,6 @@ const Login = () => {
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       setStatusMessage("Please fill in all required fields.");
-      setLoading(false);
       return;
     }
 
@@ -44,9 +44,10 @@ const Login = () => {
         return;
       }
 
+      alert("Login successful.");
       navigate(getLastProtectedRoute(), { replace: true });
     } catch (error) {
-      const status = error.message.toLowerCase();
+      const status = (error?.message || "").toLowerCase();
 
       if (status.includes("unauthorized") || status.includes("invalid credentials")) {
         setStatusMessage("Invalid credentials. Please check your password.");
@@ -57,6 +58,7 @@ const Login = () => {
       }
 
       console.error("Login error:", error);
+      alert("An error occurred during login. Please try again.");
     }
   };
 
@@ -100,9 +102,9 @@ const Login = () => {
               <Link to="/forgot-password">Forgot Password?</Link>
             </div>
 
-            <button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="w-full rounded-xl">
               {loading ? "Logging in..." : "Login"}
-            </button>
+            </Button>
           </form>
 
           <div className="auth-links">

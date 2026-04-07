@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/Input";
+import Button from "../../components/Button";
 import registerbg from "../../assets/register-bg.png";
 import { getLastProtectedRoute } from "../../api/auth";
 import { register } from "../../store/authSlice";
@@ -31,6 +32,7 @@ const Register = () => {
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       setStatusMessage("Please fill in all required fields.");
+      alert("Please fill in all required fields.");
       return;
     }
 
@@ -47,9 +49,11 @@ const Register = () => {
       const token = data?.token;
 
       if (token) {
+        alert("Registration successful.");
         navigate(getLastProtectedRoute(), { replace: true });
       } else {
         setStatusMessage("Registration succeeded. Please log in.");
+        alert("Registration succeeded. Please log in.");
         navigate("/login", { replace: true });
       }
     } catch (error) {
@@ -59,7 +63,9 @@ const Register = () => {
         error.message ||
         "Registration failed. Please try again.";
 
+
       setStatusMessage(message);
+      alert(message);
     }
   };
 
@@ -107,9 +113,9 @@ const Register = () => {
 
             {statusMessage && <p style={{ color: "red" }}>{statusMessage}</p>}
 
-            <button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="w-full rounded-xl">
               {loading ? "Registering..." : "Register"}
-            </button>
+            </Button>
           </form>
 
           <div className="auth-links">

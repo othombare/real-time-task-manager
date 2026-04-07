@@ -363,17 +363,35 @@ export const seedProjects = [
   },
 ];
 
-export const cloneProjectBoard = (board = projectBoardTemplate) =>
-  board.map((column) => ({
-    ...column,
-    tasks: column.tasks.map((task) => ({
-      ...task,
-      assignee: [...(task.assignee || [])],
-      assigneeNames: [...(task.assigneeNames || [])],
-      commentsList: [...(task.commentsList || [])],
-      attachmentFiles: [...(task.attachmentFiles || [])],
-    })),
-  }));
+export const cloneProjectBoard = (board = projectBoardTemplate) => {
+  const boardMap = new Map(
+    (board || []).map((column) => [
+      column.title,
+      {
+        ...column,
+        tasks: (column.tasks || []).map((task) => ({
+          ...task,
+          assignee: [...(task.assignee || [])],
+          assigneeNames: [...(task.assigneeNames || [])],
+          commentsList: [...(task.commentsList || [])],
+          attachmentFiles: [...(task.attachmentFiles || [])],
+        })),
+      },
+    ])
+  );
+
+  return projectBoardTemplate.map((templateColumn) => {
+    const existingColumn = boardMap.get(templateColumn.title);
+
+    return {
+      ...templateColumn,
+      ...(existingColumn || {}),
+      title: templateColumn.title,
+      color: templateColumn.color,
+      tasks: existingColumn?.tasks || [],
+    };
+  });
+};
 
 export const cloneProjects = (projects = seedProjects) =>
   projects.map((project) => ({

@@ -40,6 +40,7 @@ function MyProfile() {
   const handleLogout = () => {
     // Clear the local auth session before sending the user back to login.
     dispatch(logout());
+    alert("Logged out successfully.");
     navigate("/login", { replace: true });
   };
 

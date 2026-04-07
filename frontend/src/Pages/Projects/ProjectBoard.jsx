@@ -155,8 +155,8 @@ function ProjectBoard() {
           </div>
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-[1.55fr_0.8fr]">
-          <div className="space-y-6">
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="min-w-0 space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-3">
@@ -207,7 +207,7 @@ function ProjectBoard() {
               </div>
             </div>
 
-            <div className="rounded-[32px] border border-border bg-card p-5 shadow-sm">
+            <div className="min-w-0 rounded-[32px] border border-border bg-card p-5 shadow-sm">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Project Board</h2>
@@ -230,7 +230,7 @@ function ProjectBoard() {
             </div>
           </div>
 
-          <aside className="space-y-4">
+          <aside className="min-w-0 space-y-4 xl:w-[360px] 2xl:w-[400px]">
             <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="rounded-2xl bg-primary/10 p-2 text-primary">
