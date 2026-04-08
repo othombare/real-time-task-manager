@@ -6,7 +6,6 @@ import {
   AlertCircleIcon,
   LayersIcon,
   FilterIcon,
-  PlusIcon,
 } from "lucide-react";
 import DashboardLayout from "./DashboardLayout";
 import Addtask from "../Addtask";
@@ -203,6 +202,7 @@ function Home() {
                 {
                   id: Date.now(),
                   ...newTask,
+                  status: newTask.status,
                   projectName: newTask.projectName || "Workspace",
                   createdBy: newTask.createdBy || profile?.name || "You",
                 },
@@ -225,12 +225,47 @@ function Home() {
       return;
     }
 
-    setPersonalColumns((currentColumns) =>
-      currentColumns.map((column) => ({
+    setPersonalColumns((currentColumns) => {
+      const currentStatus = currentColumns.find((column) =>
+        column.tasks.some((task) => task.id === taskId)
+      )?.title;
+      const nextStatus = updates.status || currentStatus;
+
+      if (!currentStatus) {
+        return currentColumns;
+      }
+
+      let taskToUpdate = null;
+
+      const columnsWithoutTask = currentColumns.map((column) => ({
         ...column,
-        tasks: column.tasks.map((task) => (task.id === taskId ? { ...task, ...updates } : task)),
-      }))
-    );
+        tasks: column.tasks.filter((task) => {
+          if (task.id !== taskId) {
+            return true;
+          }
+
+          taskToUpdate = {
+            ...task,
+            ...updates,
+            status: nextStatus,
+          };
+          return false;
+        }),
+      }));
+
+      if (!taskToUpdate) {
+        return currentColumns;
+      }
+
+      return columnsWithoutTask.map((column) =>
+        column.title === nextStatus
+          ? {
+              ...column,
+              tasks: [taskToUpdate, ...column.tasks],
+            }
+          : column
+      );
+    });
   };
 
   return (
@@ -263,15 +298,6 @@ function Home() {
               </button>
             </div>
             <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openAddTaskModal()}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-card border border-border rounded-xl text-sm font-semibold hover:bg-muted transition-all shadow-sm active:scale-95 group"
-                >
-                <PlusIcon size={16} className="text-primary group-hover:rotate-90 transition-transform" />
-                New Task
-              </button>
-              <div className="h-4 w-[1px] bg-border mx-1" />
               <p className="text-xs text-muted-foreground font-medium hidden sm:block">Last synced 2 mins ago</p>
             </div>
           </div>

@@ -6,6 +6,7 @@ import {
   PlusIcon,
   MessageSquareIcon,
   PaperclipIcon,
+  ListTodoIcon,
   UserIcon,
   XIcon,
 } from "lucide-react"
@@ -35,6 +36,8 @@ export function TaskCard({
   attachments = 0,
   attachmentFiles = [],
   projectName,
+  status = "To Do",
+  statusOptions = [],
   onUpdateTask,
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -49,6 +52,7 @@ export function TaskCard({
   const commentCount = Math.max(comments, commentsList.length)
   const attachmentCount = Math.max(attachments, attachmentFiles.length)
   const resolvedCreatorName = memberNameMap[createdBy] || createdBy || "Workspace"
+  const availableStatuses = statusOptions.length > 0 ? statusOptions : ["To Do", "In Progress", "In Review", "Done"]
 
   const openDetails = (section = "details") => {
     setActiveSection(section)
@@ -84,6 +88,21 @@ export function TaskCard({
 
     event.target.value = ""
     setActiveSection("attachments")
+  }
+
+  const handleStatusChange = (event) => {
+    if (!onUpdateTask) {
+      return
+    }
+
+    const nextStatus = event.target.value
+    onUpdateTask(id, {
+      status: nextStatus,
+    })
+
+    if (nextStatus !== status) {
+      setIsOpen(false)
+    }
   }
 
   return (
@@ -227,6 +246,27 @@ export function TaskCard({
                 <div className="flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2">
                   <UserIcon size={15} className="text-primary/80" />
                   <span>Created by: {resolvedCreatorName}</span>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-2">
+                <p className="text-sm font-semibold text-foreground">Task Status</p>
+                <div className="relative">
+                  <ListTodoIcon
+                    size={16}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-primary/70"
+                  />
+                  <select
+                    value={status}
+                    onChange={handleStatusChange}
+                    className="h-12 w-full rounded-2xl border border-input bg-background pl-11 pr-4 text-sm font-medium text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  >
+                    {availableStatuses.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

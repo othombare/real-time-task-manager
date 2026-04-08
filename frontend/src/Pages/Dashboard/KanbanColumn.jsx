@@ -36,7 +36,13 @@ export function KanbanColumn({ title, tasks, color, onAddTask, onUpdateTask }) {
       >
         <AnimatePresence mode="popLayout">
           {tasks.map((task) => (
-            <TaskCard key={task.id} {...task} onUpdateTask={onUpdateTask} />
+            <TaskCard
+              key={task.id}
+              {...task}
+              status={task.status || title}
+              statusOptions={["To Do", "In Progress", "In Review", "Done"]}
+              onUpdateTask={onUpdateTask}
+            />
           ))}
         </AnimatePresence>
         

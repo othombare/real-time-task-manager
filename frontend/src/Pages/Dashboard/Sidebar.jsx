@@ -4,11 +4,9 @@ import {
   BriefcaseBusinessIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  CheckSquareIcon,
   LayoutDashboardIcon,
   MessageSquareIcon,
   SettingsIcon,
-  UsersIcon,
   ClipboardList
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -21,7 +19,6 @@ const navItems = [
   { icon: LayoutDashboardIcon, label: "Dashboard", id: "dashboard", path: "/dashboard" },
  
   { icon: BriefcaseBusinessIcon, label: "Projects", id: "projects", path: "/projects" },
-  { icon: UsersIcon, label: "Team Members", id: "team-members", path: "/team-members" },
   { icon: BarChart3Icon, label: "Analytics", id: "analytics", path: "/analytics" },
   {icon:ClipboardList,label:"Personal To Do",id:"personal-todo",path:"/personal-todo"},
   { icon: MessageSquareIcon, label: "Message", id: "message", path: "/message", badge: 2 },

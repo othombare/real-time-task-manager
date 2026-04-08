@@ -1,0 +1,307 @@
+import { useMemo, useState } from "react";
+import {
+  ArrowLeftIcon,
+  CopyIcon,
+  MailIcon,
+  MapPinIcon,
+  UsersIcon,
+  XIcon,
+} from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import DashboardLayout from "../Dashboard/DashboardLayout";
+import { useProjects } from "./useProjects";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { getInitials, hasProjectAccess, resolveMemberLabel } from "./projectData";
+
+function ProjectTeamMembers() {
+  const navigate = useNavigate();
+  const { projectSlug } = useParams();
+  const { profile } = useCurrentUser();
+  const { getProjectBySlug } = useProjects();
+  const project = getProjectBySlug(projectSlug);
+  const displayName = profile?.name || "Workspace User";
+  const currentMemberId = getInitials(displayName);
+  const [memberFeedback, setMemberFeedback] = useState("");
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
+
+  const memberProfiles = useMemo(() => {
+    const roleDirectory = {
+      OJ: {
+        role: "Frontend Developer",
+        team: "Engineering",
+        location: "Pune, India",
+        email: "onkar.j@taskvue.app",
+        bio: "Drives product UI delivery, task workflows, and interaction polish across the workspace.",
+      },
+      AK: {
+        role: "Backend Engineer",
+        team: "Platform",
+        location: "Bengaluru, India",
+        email: "aarav.k@taskvue.app",
+        bio: "Builds APIs, data flows, and integration logic that support project delivery.",
+      },
+      SK: {
+        role: "Product Engineer",
+        team: "Engineering",
+        location: "Mumbai, India",
+        email: "sakshi.k@taskvue.app",
+        bio: "Owns feature delivery from planning through QA handoff and release readiness.",
+      },
+      AN: {
+        role: "Project Lead",
+        team: "Product",
+        location: "Delhi, India",
+        email: "anika.n@taskvue.app",
+        bio: "Keeps the roadmap clear, aligns stakeholders, and turns ideas into actionable work.",
+      },
+      RJ: {
+        role: "QA Analyst",
+        team: "Quality",
+        location: "Hyderabad, India",
+        email: "riya.j@taskvue.app",
+        bio: "Focuses on validation, regression coverage, and release confidence for the team.",
+      },
+      VK: {
+        role: "UX Designer",
+        team: "Design",
+        location: "Pune, India",
+        email: "vivek.k@taskvue.app",
+        bio: "Shapes user journeys, interface structure, and collaboration-ready design decisions.",
+      },
+      MK: {
+        role: "Data Analyst",
+        team: "Analytics",
+        location: "Chennai, India",
+        email: "meera.k@taskvue.app",
+        bio: "Turns project data into clear insights, reporting, and measurable delivery trends.",
+      },
+    };
+
+    return (project?.members ?? []).map((member) => {
+      const defaults = roleDirectory[member] || {
+        role: "Project Member",
+        team: "Project Team",
+        location: "Remote",
+        email: `${member.toLowerCase()}@taskvue.app`,
+        bio: `${resolveMemberLabel(member, project?.memberDirectory)} contributes to ${project?.title} and helps move work across planning, delivery, and review.`,
+      };
+
+      return {
+        id: member,
+        name: resolveMemberLabel(member, project?.memberDirectory),
+        ...defaults,
+      };
+    });
+  }, [project]);
+
+  const selectedMember = useMemo(
+    () => memberProfiles.find((member) => member.id === selectedMemberId) || null,
+    [memberProfiles, selectedMemberId]
+  );
+
+  const handleCopyCode = async () => {
+    if (!project?.joinCode) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(project.joinCode);
+      setMemberFeedback(`Copied ${project.joinCode} to the clipboard.`);
+    } catch {
+      setMemberFeedback(`Share this code manually: ${project.joinCode}`);
+    }
+  };
+
+  if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
+    return (
+      <DashboardLayout>
+        <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
+          <h1 className="text-2xl font-bold tracking-tight">Project not found</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            The project team page you requested is not available for your current account.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/projects")}
+            className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+          >
+            <ArrowLeftIcon size={16} />
+            Back to Projects
+          </button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-8">
+        <section className="flex flex-col gap-4 rounded-[32px] border border-border bg-card p-6 shadow-sm lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => navigate(`/projects/${project.slug}`)}
+              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.28em] text-primary transition hover:text-primary/80"
+            >
+              <ArrowLeftIcon size={14} />
+              Back to Project Board
+            </button>
+            <h1 className="text-3xl font-bold tracking-tight">Team Members</h1>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              {project.title} team roster, member details, and invite controls in one place.
+            </p>
+          </div>
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="space-y-5">
+            <div className="rounded-[32px] border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+                  <UsersIcon size={18} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight">Members</h2>
+                  <p className="text-sm text-muted-foreground">Tap a member to view their details.</p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {memberProfiles.map((member) => (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => setSelectedMemberId(member.id)}
+                    className={`flex items-center gap-3 rounded-3xl border px-4 py-4 text-left transition ${
+                      selectedMember?.id === member.id
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-border bg-muted/20 hover:border-primary/30 hover:bg-muted/40"
+                    }`}
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                      {member.id}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">{member.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {member.id === currentMemberId ? "You" : member.role}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {selectedMember && (
+              <div className="rounded-[32px] border border-primary/20 bg-primary/5 p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-base font-bold text-primary-foreground">
+                      {selectedMember.id}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">{selectedMember.name}</h3>
+                      <p className="text-sm text-muted-foreground">{selectedMember.role}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMemberId(null)}
+                    className="rounded-full p-2 text-muted-foreground transition hover:bg-background hover:text-foreground"
+                  >
+                    <XIcon size={18} />
+                  </button>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-border bg-background px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Team</p>
+                    <p className="mt-1 font-medium">{selectedMember.team}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-background px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Location</p>
+                    <p className="mt-1 flex items-center gap-2 font-medium">
+                      <MapPinIcon size={14} className="text-primary" />
+                      {selectedMember.location}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-border bg-background px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Email</p>
+                  <p className="mt-2 flex items-center gap-2 text-sm font-medium">
+                    <MailIcon size={14} className="text-primary" />
+                    {selectedMember.email}
+                  </p>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-border bg-background px-4 py-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">About</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{selectedMember.bio}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <aside className="space-y-4 xl:w-[360px] 2xl:w-[400px]">
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+                  <UsersIcon size={18} />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Project Team</h3>
+                  <p className="text-xs text-muted-foreground">Admin, members, and invite access.</p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Admin</span>
+                  <span className="font-semibold">{project.admin || project.owner}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Members</span>
+                  <span className="font-semibold">{project.members.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Project code</span>
+                  <span className="font-semibold">{project.joinCode}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-2">
+                <CopyIcon size={16} className="text-primary" />
+                <h3 className="text-sm font-semibold">Invite by code</h3>
+              </div>
+              <div className="mt-4 flex items-center justify-between rounded-2xl bg-muted/30 px-4 py-3 text-sm font-semibold">
+                <span>{project.joinCode}</span>
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="inline-flex items-center gap-2 text-xs font-semibold text-primary transition hover:text-primary/80"
+                >
+                  <CopyIcon size={14} />
+                  Copy
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Teammates can join this project using the shared code.
+              </p>
+            </div>
+
+            {memberFeedback && (
+              <p className="rounded-2xl bg-card px-4 py-3 text-xs font-medium text-muted-foreground shadow-sm">
+                {memberFeedback}
+              </p>
+            )}
+          </aside>
+        </section>
+      </div>
+    </DashboardLayout>
+  );
+}
+
+export default ProjectTeamMembers;

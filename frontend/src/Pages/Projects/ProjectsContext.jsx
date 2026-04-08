@@ -203,17 +203,47 @@ export function ProjectsProvider({ children }) {
         project.slug === projectSlug
           ? {
               ...project,
-              board: project.board.map((column) => ({
-                ...column,
-                tasks: column.tasks.map((task) =>
-                  task.id === taskId
+              board: (() => {
+                const currentStatus = project.board.find((column) =>
+                  column.tasks.some((task) => task.id === taskId)
+                )?.title;
+                const nextStatus = updates.status || currentStatus;
+
+                if (!currentStatus) {
+                  return project.board;
+                }
+
+                let taskToUpdate = null;
+
+                const columnsWithoutTask = project.board.map((column) => ({
+                  ...column,
+                  tasks: column.tasks.filter((task) => {
+                    if (task.id !== taskId) {
+                      return true;
+                    }
+
+                    taskToUpdate = {
+                      ...task,
+                      ...updates,
+                      status: nextStatus,
+                    };
+                    return false;
+                  }),
+                }));
+
+                if (!taskToUpdate) {
+                  return project.board;
+                }
+
+                return columnsWithoutTask.map((column) =>
+                  column.title === nextStatus
                     ? {
-                        ...task,
-                        ...updates,
+                        ...column,
+                        tasks: [taskToUpdate, ...column.tasks],
                       }
-                    : task
-                ),
-              })),
+                    : column
+                );
+              })(),
             }
           : project
       )
