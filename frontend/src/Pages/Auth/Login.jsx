@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Input from "../../components/Input";
-import Button from "../../components/Button";
 import loginBg from "../../assets/login-bg.png";
 import { getLastProtectedRoute } from "../../api/auth";
 import { login } from "../../store/authSlice";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { getAuthErrorMessage, isValidEmail } from "../../utils/authMessages";
 import "../../styles/auth.css";
 
 const Login = () => {
@@ -25,12 +25,25 @@ const Login = () => {
     e.preventDefault();
 
     const newErrors = {};
-    if (!form.email) newErrors.email = "*Email is required";
-    if (!form.password) newErrors.password = "*Password is required";
+    if (!form.email) {
+      newErrors.email = "*Email is required";
+    } else if (!isValidEmail(form.email)) {
+      newErrors.email = "*Enter a valid email address";
+    }
+
+    if (!form.password) {
+      newErrors.password = "*Password is required";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      setStatusMessage("Please fill in all required fields.");
+      const validationMessage = !form.email
+        ? "Please enter your email address."
+        : !isValidEmail(form.email)
+          ? "Please enter a valid email address."
+          : "Please enter your password.";
+      setStatusMessage(validationMessage);
+      alert(validationMessage);
       return;
     }
 
@@ -41,24 +54,17 @@ const Login = () => {
 
       if (!token) {
         setStatusMessage("User not registered. Please register first.");
+        alert("User not registered. Please register first.");
         return;
       }
 
       alert("Login successful.");
       navigate(getLastProtectedRoute(), { replace: true });
     } catch (error) {
-      const status = (error?.message || "").toLowerCase();
-
-      if (status.includes("unauthorized") || status.includes("invalid credentials")) {
-        setStatusMessage("Invalid credentials. Please check your password.");
-      } else if (status.includes("not registered")) {
-        setStatusMessage("User not registered. Please register first.");
-      } else {
-        setStatusMessage("Server error. Try again later.");
-      }
-
+      const message = getAuthErrorMessage("login", error);
+      setStatusMessage(message);
+      alert(message);
       console.error("Login error:", error);
-      alert("An error occurred during login. Please try again.");
     }
   };
 
@@ -102,9 +108,9 @@ const Login = () => {
               <Link to="/forgot-password">Forgot Password?</Link>
             </div>
 
-            <Button type="submit" disabled={loading} className="w-full rounded-xl">
+            <button type="submit" disabled={loading}>
               {loading ? "Logging in..." : "Login"}
-            </Button>
+            </button>
           </form>
 
           <div className="auth-links">

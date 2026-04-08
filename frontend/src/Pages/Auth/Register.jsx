@@ -6,6 +6,7 @@ import registerbg from "../../assets/register-bg.png";
 import { getLastProtectedRoute } from "../../api/auth";
 import { register } from "../../store/authSlice";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { getAuthErrorMessage, isValidEmail } from "../../utils/authMessages";
 import "../../styles/auth.css";
 
 const Register = () => {
@@ -25,14 +26,35 @@ const Register = () => {
     e.preventDefault();
 
     const newErrors = {};
-    if (!form.name) newErrors.name = "*Name is required";
-    if (!form.email) newErrors.email = "*Email is required";
-    if (!form.password) newErrors.password = "*Password is required";
+    if (!form.name.trim()) {
+      newErrors.name = "*Name is required";
+    }
+
+    if (!form.email) {
+      newErrors.email = "*Email is required";
+    } else if (!isValidEmail(form.email)) {
+      newErrors.email = "*Enter a valid email address";
+    }
+
+    if (!form.password) {
+      newErrors.password = "*Password is required";
+    } else if (form.password.length < 8) {
+      newErrors.password = "*Password must be at least 8 characters";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      setStatusMessage("Please fill in all required fields.");
-      alert("Please fill in all required fields.");
+      const validationMessage = !form.name.trim()
+        ? "Please enter your full name."
+        : !form.email
+          ? "Please enter your email address."
+          : !isValidEmail(form.email)
+            ? "Please enter a valid email address."
+            : !form.password
+              ? "Please create a password."
+              : "Password must be at least 8 characters long.";
+      setStatusMessage(validationMessage);
+    
       return;
     }
 
@@ -49,21 +71,16 @@ const Register = () => {
       const token = data?.token;
 
       if (token) {
-        alert("Registration successful.");
+        alert("Your account has been created successfully.");
         navigate(getLastProtectedRoute(), { replace: true });
       } else {
-        setStatusMessage("Registration succeeded. Please log in.");
-        alert("Registration succeeded. Please log in.");
+        setStatusMessage("Your account was created. Please log in to continue.");
+        alert("Registartion success! Please log in to continue.");
         navigate("/login", { replace: true });
       }
     } catch (error) {
       console.error("Registration error:", error);
-
-      const message =
-        error.message ||
-        "Registration failed. Please try again.";
-
-
+      const message = getAuthErrorMessage("register", error);
       setStatusMessage(message);
       alert(message);
     }

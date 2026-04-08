@@ -5,6 +5,7 @@ import img from "../../assets/forgotpass-bg.png";
 import { getLastProtectedRoute } from "../../api/auth";
 import { resetPasswordSession } from "../../store/authSlice";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { getAuthErrorMessage } from "../../utils/authMessages";
 import "../../styles/auth.css";
 
 const ResetPassword = () => {
@@ -28,6 +29,8 @@ const ResetPassword = () => {
 
     if (!form.password) {
       nextErrors.password = "*Password is required";
+    } else if (form.password.length < 8) {
+      nextErrors.password = "*Password must be at least 8 characters";
     }
 
     if (!form.passwordConfirm) {
@@ -44,7 +47,15 @@ const ResetPassword = () => {
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
-      setStatusMessage("Please fix the highlighted fields.");
+      const validationMessage = !form.password
+        ? "Please enter your new password."
+        : form.password.length < 8
+          ? "Password must be at least 8 characters long."
+          : !form.passwordConfirm
+            ? "Please confirm your new password."
+            : "Passwords do not match. Please enter the same password in both fields.";
+      setStatusMessage(validationMessage);
+      alert(validationMessage);
       return;
     }
 
@@ -55,11 +66,12 @@ const ResetPassword = () => {
         password: form.password,
         passwordConfirm: form.passwordConfirm,
       })).unwrap();
+      alert("Your password has been reset successfully.");
       navigate(getLastProtectedRoute(), { replace: true });
     } catch (error) {
-      setStatusMessage(
-        error.message || "Unable to reset password. Please try again."
-      );
+      const message = getAuthErrorMessage("reset-password", error);
+      setStatusMessage(message);
+      alert(message);
     }
   };
 
@@ -72,8 +84,11 @@ const ResetPassword = () => {
 
         <div className="auth-right">
           <h2>Reset Password</h2>
+          <p className="auth-subtitle">
+            Create your new password below to regain access to your account.
+          </p>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="auth-form">
             <Input
               label="New Password"
               type="password"

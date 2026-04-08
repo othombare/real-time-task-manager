@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Input from "../../components/Input";
 import img from "../../assets/forgotpass-bg.png";
 import { requestPasswordReset } from "../../api/auth";
+import { getAuthErrorMessage, isValidEmail } from "../../utils/authMessages";
 import "../../styles/auth.css";
 
 const ForgotPassword = () => {
@@ -18,8 +19,18 @@ const ForgotPassword = () => {
     setResetUrl("");
 
     if (!email) {
-      setMessage("Please enter your email");
+      const validationMessage = "Please enter your registered email address.";
+      setMessage(validationMessage);
       setIsError(true);
+      alert(validationMessage);
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      const validationMessage = "Please enter a valid email address.";
+      setMessage(validationMessage);
+      setIsError(true);
+      alert(validationMessage);
       return;
     }
 
@@ -27,11 +38,17 @@ const ForgotPassword = () => {
       setLoading(true);
       setMessage("Sending reset link...");
       const data = await requestPasswordReset(email);
-      setMessage(data.message || "Password reset link sent to your email.");
+      const successMessage = data?.message
+        ? "Reset password link has been sent to mail."
+        : "Reset password link has been sent to mail.";
+      setMessage(successMessage);
       setResetUrl(data.resetUrl || "");
+      alert(successMessage);
     } catch (error) {
-      setMessage(error.message || "Unable to send reset link right now.");
+      const errorMessage = getAuthErrorMessage("forgot-password", error);
+      setMessage(errorMessage);
       setIsError(true);
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -46,8 +63,11 @@ const ForgotPassword = () => {
 
         <div className="auth-right">
           <h2>Forgot Password</h2>
+          <p className="auth-subtitle">
+            Enter your registered email address and we&apos;ll send you a reset link.
+          </p>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="auth-form">
             <Input
               label="Email"
               type="email"

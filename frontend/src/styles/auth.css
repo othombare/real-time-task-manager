@@ -68,8 +68,22 @@
 .auth-right h2 {
   font-size: 26px;
   color: #333;
-  margin-bottom: 25px;
+  margin-bottom: 10px;
   text-align: center;
+}
+
+.auth-subtitle {
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .auth-right .usericon {
@@ -175,6 +189,7 @@
 .auth-message {
   text-align: center;
   font-size: 14px;
+  line-height: 1.5;
 }
 
 .auth-message.success {
@@ -203,6 +218,10 @@
 
 .dark .auth-right h2 {
   color: #f8fafc;
+}
+
+.dark .auth-subtitle {
+  color: #94a3b8;
 }
 
 .dark .auth-left h2 {
