@@ -19,6 +19,15 @@ const userSchema= new mongoose.Schema({
     photo:{
         type:String
     },
+    role: {
+        type: String,
+        enum: ['user', 'admin', 'manager'],
+        default: 'user'
+    },
+    about: {
+        type: String,
+        default: ''
+    },
     password:{
         type:String,
         required:[true,"Password is required"],
@@ -50,15 +59,15 @@ const userSchema= new mongoose.Schema({
 });
 
 
-userSchema.pre('save', async function(next){
+userSchema.pre('save', async function() {
     //only run if password is actually modified
-    if(!this.isModified('password')) return next();
+    if (!this.isModified('password')) return;
 
     //hash the password with cost of 12
     this.password = await bcrypt.hash(this.password, 12);
 
     //delete passwordConfirm field
-    this.passwordConfirm= undefined;
+    this.passwordConfirm = undefined;
 
     //set passwordChangedAt
     this.passwordChangedAt = Date.now();
@@ -76,6 +85,8 @@ userSchema.methods.createPasswordResetToken = function() {
         .createHash('sha256')
         .update(resetToken)
         .digest('hex');
+
+        console.log({ resetToken }, this.passwordResetToken);
     this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
 
     return resetToken;
