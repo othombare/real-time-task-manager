@@ -71,11 +71,6 @@ exports.login = catchAsync(async (req, res, next) => {
 
 exports.forgotPassword = catchAsync(async (req, res, next) => {
     //1) Get user based on POSTed email
-    // const { email } = req.body;
-    // if (!email) {
-    //     return next(new AppError('Please provide your email address.', 400));
-    // }
-
     const user = await User.findOne({ email: req.body.email });
     if (!user) {
         return next(new AppError('There is no user with that email address.', 404));
@@ -85,11 +80,11 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     const resetToken = user.createPasswordResetToken();
     await user.save({ validateBeforeSave: false });
 
+    //3) Create frontend reset URL
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/resetPassword/${resetToken}`;
 
-    //3) Send it to user's email
-    const resetUrl = `${req.protocol}://${req.get('host')}/api/v1/users/resetPassword/${resetToken}`;
-
-    const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetUrl}.\nIf you didn't forget your password, please ignore this email!`;
+    const message = `Forgot your password? Please visit the link below to reset your password:\n${resetUrl}\n\nThis link will expire in 10 minutes.\n\nIf you didn't request a password reset, please ignore this email!`;
 
     try {
         await sendEmail({
@@ -100,8 +95,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 
         res.status(200).json({
             status: 'success',
-            message: 'Token sent to email.',
-            resetUrl
+            message: 'Password reset link has been sent to your email address.'
         });
     } catch (err) {
         user.passwordResetToken = undefined;
@@ -111,8 +105,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
         if (process.env.NODE_ENV === 'development') {
             return res.status(200).json({
                 status: 'success',
-                message: 'Password reset token created, but email delivery failed in development.',
-                resetUrl
+                message: 'Password reset token created, but email delivery failed in development.'
             });
         }
 
