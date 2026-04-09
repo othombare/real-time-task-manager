@@ -7,13 +7,14 @@ import {
   LayersIcon,
   FilterIcon,
 } from "lucide-react";
+import { DragDropContext } from "react-beautiful-dnd";
 import DashboardLayout from "./DashboardLayout";
 import Addtask from "../Addtask";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { StatCard } from "./StatCard";
 import { KanbanColumn } from "./KanbanColumn";
 import { useProjects } from "../Projects/useProjects";
-import { getInitials, hasProjectAccess, resolveMemberLabel } from "../Projects/projectData";
+import { getInitials, hasProjectAccess } from "../Projects/projectData";
 
 const stats = [
   {
@@ -80,7 +81,7 @@ const getGreetingByTime = () => {
 
 function Home() {
   const { profile } = useCurrentUser();
-  const { projects, updateProjectTask } = useProjects();
+  const { projects, updateProjectBoard, updateProjectTask } = useProjects();
   const firstName = profile?.name?.split(" ")[0] || "there";
   const displayName = profile?.name || "Workspace User";
   const userInitials = getInitials(displayName || "OJ");
@@ -92,29 +93,6 @@ function Home() {
     () => projects.filter((project) => hasProjectAccess(project, userInitials, displayName)),
     [displayName, projects, userInitials]
   );
-  const projectOptions = useMemo(
-    () => visibleProjects.map((project) => project.title),
-    [visibleProjects]
-  );
-  const assigneeOptions = useMemo(() => {
-    const uniqueMembers = new Set(visibleProjects.flatMap((project) => project.members));
-    const directory = visibleProjects.reduce(
-      (lookup, project) => ({ ...lookup, ...(project.memberDirectory || {}) }),
-      {}
-    );
-    uniqueMembers.add(userInitials);
-
-    return Array.from(uniqueMembers)
-      .sort((a, b) => a.localeCompare(b))
-      .map((member) => ({
-        value: member,
-        label:
-          member === userInitials
-            ? `${resolveMemberLabel(member, directory)} (You)`
-            : resolveMemberLabel(member, directory),
-      }));
-  }, [userInitials, visibleProjects]);
-
   const boardColumns = useMemo(() => {
     const assignedProjectColumns = dashboardColumns.map((column) => ({
       ...column,
@@ -268,6 +246,117 @@ function Home() {
     });
   };
 
+  const handleDragEnd = ({ source, destination }) => {
+    if (!destination) {
+      return;
+    }
+
+    const isSamePosition =
+      source.droppableId === destination.droppableId && source.index === destination.index;
+
+    if (isSamePosition) {
+      return;
+    }
+
+    const sourceColumn = boardColumns.find((column) => column.title === source.droppableId);
+    const destinationColumn = boardColumns.find((column) => column.title === destination.droppableId);
+    const movedTask = sourceColumn?.tasks[source.index];
+
+    if (!sourceColumn || !destinationColumn || !movedTask) {
+      return;
+    }
+
+    const destinationTasks = [...destinationColumn.tasks];
+
+    if (source.droppableId === destination.droppableId) {
+      destinationTasks.splice(source.index, 1);
+    }
+
+    if (movedTask.projectSlug) {
+      const projectDestinationIndex = destinationTasks
+        .slice(0, destination.index)
+        .filter((task) => task.projectSlug === movedTask.projectSlug).length;
+
+      updateProjectBoard(movedTask.projectSlug, (currentColumns) => {
+        const nextColumns = currentColumns.map((column) => ({
+          ...column,
+          tasks: [...column.tasks],
+        }));
+
+        const sourceProjectColumnIndex = nextColumns.findIndex(
+          (column) => column.title === source.droppableId
+        );
+        const destinationProjectColumnIndex = nextColumns.findIndex(
+          (column) => column.title === destination.droppableId
+        );
+
+        if (sourceProjectColumnIndex === -1 || destinationProjectColumnIndex === -1) {
+          return currentColumns;
+        }
+
+        const sourceProjectColumn = nextColumns[sourceProjectColumnIndex];
+        const destinationProjectColumn = nextColumns[destinationProjectColumnIndex];
+        const taskIndex = sourceProjectColumn.tasks.findIndex((task) => task.id === movedTask.id);
+
+        if (taskIndex === -1) {
+          return currentColumns;
+        }
+
+        const [removedTask] = sourceProjectColumn.tasks.splice(taskIndex, 1);
+
+        if (!removedTask) {
+          return currentColumns;
+        }
+
+        destinationProjectColumn.tasks.splice(projectDestinationIndex, 0, {
+          ...removedTask,
+          status: destinationProjectColumn.title,
+        });
+
+        return nextColumns;
+      });
+
+      return;
+    }
+
+    const personalDestinationIndex = destinationTasks
+      .slice(0, destination.index)
+      .filter((task) => !task.projectSlug).length;
+
+    setPersonalColumns((currentColumns) => {
+      const nextColumns = currentColumns.map((column) => ({
+        ...column,
+        tasks: [...column.tasks],
+      }));
+
+      const sourcePersonalColumnIndex = nextColumns.findIndex(
+        (column) => column.title === source.droppableId
+      );
+      const destinationPersonalColumnIndex = nextColumns.findIndex(
+        (column) => column.title === destination.droppableId
+      );
+
+      if (sourcePersonalColumnIndex === -1 || destinationPersonalColumnIndex === -1) {
+        return currentColumns;
+      }
+
+      const sourcePersonalColumn = nextColumns[sourcePersonalColumnIndex];
+      const destinationPersonalColumn = nextColumns[destinationPersonalColumnIndex];
+      const [removedTask] = sourcePersonalColumn.tasks.splice(source.index, 1);
+
+      if (!removedTask) {
+        return currentColumns;
+      }
+
+      destinationPersonalColumn.tasks.splice(personalDestinationIndex, 0, {
+        ...removedTask,
+        status: destinationPersonalColumn.title,
+      });
+
+      return nextColumns;
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-10">
@@ -297,16 +386,15 @@ function Home() {
                 Filters
               </button>
             </div>
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-muted-foreground font-medium hidden sm:block">Last synced 2 mins ago</p>
-            </div>
           </div>
 
+          <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex gap-8 overflow-x-auto pb-10 custom-scrollbar snap-x snap-mandatory pr-4">
-              {boardColumns.map((column, idx) => (
+              {boardColumns.map((column) => (
                 <KanbanColumn
-                  key={idx}
+                  key={column.title}
                   {...column}
+                  droppableId={column.title}
                   onAddTask={openAddTaskModal}
                   onUpdateTask={(taskId, updates) => {
                     const matchedTask = column.tasks.find((task) => task.id === taskId);
@@ -315,6 +403,7 @@ function Home() {
                 />
               ))}
             </div>
+          </DragDropContext>
         </section>
       </div>
 
@@ -323,9 +412,8 @@ function Home() {
         onClose={() => setIsAddTaskOpen(false)}
         onSubmit={handleAddTask}
         statuses={boardColumns.map((column) => column.title)}
-        showProjectField
-        projectOptions={projectOptions}
-        assigneeOptions={assigneeOptions}
+        hideAssigneeField
+        defaultAssignee={userInitials}
         initialStatus={selectedStatus}
       />
 

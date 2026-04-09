@@ -8,6 +8,7 @@ import {
   UsersIcon,
   BriefcaseBusinessIcon,
 } from "lucide-react";
+import { DragDropContext } from "react-beautiful-dnd";
 import { useNavigate, useParams } from "react-router-dom";
 import Addtask from "../Addtask";
 import DashboardLayout from "../Dashboard/DashboardLayout";
@@ -20,7 +21,7 @@ function ProjectBoard() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
   const { profile } = useCurrentUser();
-  const { getProjectBySlug, updateProjectBoard, updateProjectTask, addProjectMember } = useProjects();
+  const { getProjectBySlug, updateProjectBoard, updateProjectTask } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
@@ -38,6 +39,50 @@ function ProjectBoard() {
       })),
     [project]
   );
+  const handleDragEnd = ({ source, destination }) => {
+    if (!destination) {
+      return;
+    }
+
+    const isSamePosition =
+      source.droppableId === destination.droppableId && source.index === destination.index;
+
+    if (isSamePosition) {
+      return;
+    }
+
+    updateProjectBoard(projectSlug, (currentColumns) => {
+      const nextColumns = currentColumns.map((column) => ({
+        ...column,
+        tasks: [...column.tasks],
+      }));
+
+      const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
+      const destinationColumnIndex = nextColumns.findIndex(
+        (column) => column.title === destination.droppableId
+      );
+
+      if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
+        return currentColumns;
+      }
+
+      const sourceColumn = nextColumns[sourceColumnIndex];
+      const destinationColumn = nextColumns[destinationColumnIndex];
+      const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
+
+      if (!movedTask) {
+        return currentColumns;
+      }
+
+      destinationColumn.tasks.splice(destination.index, 0, {
+        ...movedTask,
+        status: destinationColumn.title,
+      });
+
+      return nextColumns;
+    });
+  };
+
 
   const boardStats = useMemo(() => {
     const allTasks = boardColumns.flatMap((column) => column.tasks);
@@ -200,16 +245,19 @@ function ProjectBoard() {
                 </div>
               </div>
 
-              <div className="grid gap-5 xl:grid-cols-4">
-                {boardColumns.map((column) => (
-                  <KanbanColumn
-                    key={column.title}
-                    {...column}
-                    onAddTask={openAddTaskModal}
-                    onUpdateTask={handleUpdateTask}
-                  />
-                ))}
-              </div>
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <div className="grid gap-5 xl:grid-cols-4">
+                  {boardColumns.map((column) => (
+                    <KanbanColumn
+                      key={column.title}
+                      {...column}
+                      droppableId={column.title}
+                      onAddTask={openAddTaskModal}
+                      onUpdateTask={handleUpdateTask}
+                    />
+                  ))}
+                </div>
+              </DragDropContext>
             </div>
           </div>
         </section>
