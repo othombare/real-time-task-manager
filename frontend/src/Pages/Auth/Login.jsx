@@ -89,6 +89,7 @@ const Login = () => {
               onChange={handleChange}
               placeholder="Enter your email"
               error={errors.email}
+              autoComplete="email"
             />
 
             <Input
@@ -99,6 +100,7 @@ const Login = () => {
               onChange={handleChange}
               placeholder="Enter your password"
               error={errors.password}
+              autoComplete="current-password"
             />
 
             {errors.general && <p style={{ color: "red" }}>{errors.general}</p>}

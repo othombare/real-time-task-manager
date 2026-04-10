@@ -15,6 +15,7 @@ import {
   getProjects as getProjectsApi,
   joinProject as joinProjectApi,
 } from "../../utils/projectApi";
+import { getAuthToken } from "../../api/axios";
 
 const STORAGE_KEY = "taskvue-projects";
 
@@ -157,6 +158,12 @@ export function ProjectsProvider({ children }) {
   }, [projects]);
 
   const fetchProjects = useCallback(async () => {
+    const token = getAuthToken();
+
+    if (!token) {
+      return;
+    }
+
     try {
       const response = await getProjectsApi();
       const nextProjects = Array.isArray(response?.data?.data?.projects)
@@ -177,6 +184,10 @@ export function ProjectsProvider({ children }) {
   }, [projects.length]);
 
   useEffect(() => {
+    if (!getAuthToken()) {
+      return;
+    }
+
     fetchProjects();
   }, [fetchProjects]);
 
