@@ -6,6 +6,7 @@ app.set('query parser', 'extended');
 const morgan= require('morgan');
 
 const userRouter= require(`./routes/userRoutes`)
+const projectRouter = require('./routes/projectRoutes');
 const globalErrorHandler = require('./controllers/errorController');
 
 //1. MIDDLEWARE
@@ -46,6 +47,7 @@ app.use((req, res, next)=>{
 //MOUNTING AND CALLING ALL ROUTERS
 
 app.use('/api/v1/users', userRouter);
+app.use('/api/v1/projects', projectRouter);
 
 // For handling errors globally
 app.use(globalErrorHandler);

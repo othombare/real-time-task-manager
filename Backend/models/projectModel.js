@@ -53,15 +53,13 @@ const projectSchema = new mongoose.Schema(
 );
 
 // Indexes
-projectSchema.index({ projectCode: 1 }, { unique: true });
 projectSchema.index({ "members.user": 1 });
 
 // Pre-save middleware to ensure projectCode is uppercase
-projectSchema.pre("save", function (next) {
+projectSchema.pre("save", async function () {
   if (this.projectCode) {
     this.projectCode = this.projectCode.toUpperCase();
   }
-  next();
 });
 
 module.exports = mongoose.model("Project", projectSchema);
