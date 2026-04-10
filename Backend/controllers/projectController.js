@@ -4,7 +4,7 @@ const catchAsync = require('../utils/catchAsync');
 
 const PROJECT_CODE_LENGTH = 6;
 const PROJECT_CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const USER_POPULATE_FIELDS = 'name email';
+const USER_POPULATE_FIELDS = 'name email photo role about location';
 
 const generateRandomProjectCode = () => {
   let code = '';

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { ImageIcon, LogOutIcon, MailIcon, PencilIcon, SaveIcon, ShieldCheckIcon, SparklesIcon, UserRoundIcon, XIcon } from "lucide-react";
+import { ImageIcon, LogOutIcon, MailIcon, MapPinIcon, PencilIcon, SaveIcon, ShieldCheckIcon, SparklesIcon, UserRoundIcon, XIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { logout, updateProfileLocally } from "../../store/authSlice";
+import { logout, saveProfile } from "../../store/authSlice";
 import { useAppDispatch } from "../../store/hooks";
 
 const profileStats = [
@@ -15,9 +15,10 @@ const profileStats = [
 function MyProfile() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { profile, loading } = useCurrentUser();
+  const { profile, loading, profileSaving } = useCurrentUser();
   const [role, setRole] = useState("");
   const [about, setAbout] = useState("");
+  const [location, setLocation] = useState("");
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -26,6 +27,7 @@ function MyProfile() {
       profile?.about ||
         "This profile is connected to your active session. Add a short intro so teammates can quickly understand your role and focus."
     );
+    setLocation(profile?.location || "");
   }, [profile]);
 
   const roleOptions = [
@@ -54,14 +56,19 @@ function MyProfile() {
     .slice(0, 2)
     .toUpperCase();
 
-  const handleSaveProfile = () => {
-    dispatch(
-      updateProfileLocally({
-        role,
-        about: about.trim(),
-      })
-    );
-    setIsEditing(false);
+  const handleSaveProfile = async () => {
+    try {
+      await dispatch(
+        saveProfile({
+          role,
+          about: about.trim(),
+          location: location.trim(),
+        })
+      ).unwrap();
+      setIsEditing(false);
+    } catch (error) {
+      alert(error || "Unable to save your profile right now.");
+    }
   };
 
   const handleCancelEdit = () => {
@@ -70,6 +77,7 @@ function MyProfile() {
       profile?.about ||
         "This profile is connected to your active session. Add a short intro so teammates can quickly understand your role and focus."
     );
+    setLocation(profile?.location || "");
     setIsEditing(false);
   };
 
@@ -122,14 +130,16 @@ function MyProfile() {
                     <button
                       type="button"
                       onClick={handleSaveProfile}
+                      disabled={profileSaving}
                       className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
                     >
                       <SaveIcon size={14} />
-                      Save
+                      {profileSaving ? "Saving..." : "Save"}
                     </button>
                     <button
                       type="button"
                       onClick={handleCancelEdit}
+                      disabled={profileSaving}
                       className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
                     >
                       <XIcon size={14} />
@@ -155,11 +165,12 @@ function MyProfile() {
                   <div>
                     <p className="text-sm font-medium">Role</p>
                     {isEditing ? (
-                      <select
-                        value={role}
-                        onChange={(event) => setRole(event.target.value)}
-                        className="mt-1 h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                      >
+                        <select
+                          value={role}
+                          onChange={(event) => setRole(event.target.value)}
+                          disabled={profileSaving}
+                          className="mt-1 h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                        >
                         {roleOptions.map((option) => (
                           <option key={option} value={option}>
                             {option}
@@ -182,6 +193,26 @@ function MyProfile() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="rounded-2xl bg-slate-100 p-2 text-slate-700">
+                    <MapPinIcon size={18} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Location</p>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={location}
+                        onChange={(event) => setLocation(event.target.value)}
+                        disabled={profileSaving}
+                        className="mt-1 h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                        placeholder="Add your location"
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{location || "No location added yet"}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-slate-100 p-2 text-slate-700">
                     <ImageIcon size={18} />
                   </div>
                   <div>
@@ -200,6 +231,7 @@ function MyProfile() {
                 <textarea
                   value={about}
                   onChange={(event) => setAbout(event.target.value)}
+                  disabled={profileSaving}
                   className="mt-4 min-h-32 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-7 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                   placeholder="Add a short profile summary..."
                 />
@@ -244,7 +276,7 @@ function MyProfile() {
                 <h2 className="font-semibold">Next Step</h2>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                You can now update your role and about section locally, and later connect the same UI to your real backend.
+                Keep your role, location, and intro updated so teammates see accurate details across project spaces.
               </p>
             </div>
 

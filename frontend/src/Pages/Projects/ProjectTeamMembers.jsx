@@ -25,73 +25,51 @@ function ProjectTeamMembers() {
   const [selectedMemberId, setSelectedMemberId] = useState(null);
 
   const memberProfiles = useMemo(() => {
-    const roleDirectory = {
-      OJ: {
-        role: "Frontend Developer",
-        team: "Engineering",
-        location: "Pune, India",
-        email: "onkar.j@taskvue.app",
-        bio: "Drives product UI delivery, task workflows, and interaction polish across the workspace.",
-      },
-      AK: {
-        role: "Backend Engineer",
-        team: "Platform",
-        location: "Bengaluru, India",
-        email: "aarav.k@taskvue.app",
-        bio: "Builds APIs, data flows, and integration logic that support project delivery.",
-      },
-      SK: {
-        role: "Product Engineer",
-        team: "Engineering",
-        location: "Mumbai, India",
-        email: "sakshi.k@taskvue.app",
-        bio: "Owns feature delivery from planning through QA handoff and release readiness.",
-      },
-      AN: {
-        role: "Project Lead",
-        team: "Product",
-        location: "Delhi, India",
-        email: "anika.n@taskvue.app",
-        bio: "Keeps the roadmap clear, aligns stakeholders, and turns ideas into actionable work.",
-      },
-      RJ: {
-        role: "QA Analyst",
-        team: "Quality",
-        location: "Hyderabad, India",
-        email: "riya.j@taskvue.app",
-        bio: "Focuses on validation, regression coverage, and release confidence for the team.",
-      },
-      VK: {
-        role: "UX Designer",
-        team: "Design",
-        location: "Pune, India",
-        email: "vivek.k@taskvue.app",
-        bio: "Shapes user journeys, interface structure, and collaboration-ready design decisions.",
-      },
-      MK: {
-        role: "Data Analyst",
-        team: "Analytics",
-        location: "Chennai, India",
-        email: "meera.k@taskvue.app",
-        bio: "Turns project data into clear insights, reporting, and measurable delivery trends.",
-      },
-    };
+    const uniqueMembers = new Map();
 
-    return (project?.members ?? []).map((member) => {
-      const defaults = roleDirectory[member] || {
-        role: "Project Member",
-        team: "Project Team",
-        location: "Remote",
-        email: `${member.toLowerCase()}@taskvue.app`,
-        bio: `${resolveMemberLabel(member, project?.memberDirectory)} contributes to ${project?.title} and helps move work across planning, delivery, and review.`,
+    (project?.memberProfiles ?? []).forEach((member) => {
+      const name = member.name || resolveMemberLabel(member.id, project?.memberDirectory);
+      const normalizedName = name.trim().toLowerCase();
+      const normalizedEmail = member.email?.trim().toLowerCase();
+      const lookupKey =
+        member.userId ||
+        normalizedEmail ||
+        normalizedName ||
+        member.id;
+
+      const normalizedMember = {
+        id: member.id || getInitials(name),
+        name,
+        role: member.role || "Project Member",
+        location: member.location || "Location not added",
+        email: member.email || "No email available",
+        bio:
+          member.about ||
+          `${name} contributes to ${project?.title} and helps move work across planning, delivery, and review.`,
       };
 
-      return {
-        id: member,
-        name: resolveMemberLabel(member, project?.memberDirectory),
-        ...defaults,
-      };
+      const existingMember = uniqueMembers.get(lookupKey);
+
+      if (!existingMember) {
+        uniqueMembers.set(lookupKey, normalizedMember);
+        return;
+      }
+
+      uniqueMembers.set(lookupKey, {
+        ...existingMember,
+        ...normalizedMember,
+        id:
+          normalizedMember.id?.length >= existingMember.id?.length
+            ? normalizedMember.id
+            : existingMember.id,
+        name:
+          normalizedMember.name?.length >= existingMember.name?.length
+            ? normalizedMember.name
+            : existingMember.name,
+      });
     });
+
+    return Array.from(uniqueMembers.values());
   }, [project]);
 
   const selectedMember = useMemo(
@@ -213,11 +191,7 @@ function ProjectTeamMembers() {
                   </button>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-border bg-background px-4 py-3">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Team</p>
-                    <p className="mt-1 font-medium">{selectedMember.team}</p>
-                  </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-1">
                   <div className="rounded-2xl border border-border bg-background px-4 py-3">
                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Location</p>
                     <p className="mt-1 flex items-center gap-2 font-medium">

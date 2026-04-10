@@ -3,10 +3,11 @@ import { getLastProtectedRoute } from "../api/auth";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 
 const PublicRoute = ({ children, redirectAuthenticated = true }) => {
-  const { profile, loading } = useCurrentUser();
+  const { profile, token, loading, initialized } = useCurrentUser();
+  const isAuthenticated = Boolean(profile || token);
 
   // Show loading while checking authentication
-  if (loading && redirectAuthenticated) {
+  if ((loading || !initialized) && redirectAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -17,8 +18,8 @@ const PublicRoute = ({ children, redirectAuthenticated = true }) => {
     );
   }
 
-  // If we have a valid profile, redirect to dashboard
-  if (profile && redirectAuthenticated) {
+  // If we have a persisted session, redirect to the workspace
+  if (isAuthenticated && redirectAuthenticated) {
     return <Navigate to={getLastProtectedRoute()} replace />;
   }
 

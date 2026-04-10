@@ -15,7 +15,7 @@ import {
   getProjects as getProjectsApi,
   joinProject as joinProjectApi,
 } from "../../utils/projectApi";
-import { getAuthToken } from "../../api/axios";
+import { useAppSelector } from "../../store/hooks";
 
 const STORAGE_KEY = "taskvue-projects";
 
@@ -55,7 +55,130 @@ const getMemberIdentity = (member) => {
   };
 };
 
-const normalizeProject = (project) => {
+const EMPTY_MEMBER_VALUE_SET = new Set([
+  "",
+  "Location not added",
+  "No email available",
+]);
+
+const isGeneratedMemberBio = (bio = "") =>
+  bio.includes("contributes to") &&
+  bio.includes("helps move work across planning, delivery, and review.");
+
+const pickMemberValue = (...values) =>
+  values.find((value) => value !== undefined && value !== null) ?? null;
+
+const pickPreferredMemberField = (...values) =>
+  values.find(
+    (value) =>
+      value !== undefined &&
+      value !== null &&
+      !(typeof value === "string" && EMPTY_MEMBER_VALUE_SET.has(value.trim()))
+  ) ??
+  values.find((value) => value !== undefined && value !== null) ??
+  null;
+
+const normalizeMemberProfile = (memberProfile = {}, projectTitle = "this project") => {
+  const fallbackName = memberProfile.name || memberProfile.label || "Project Member";
+
+  return {
+    id: memberProfile.id,
+    userId: pickMemberValue(memberProfile.userId, memberProfile._id),
+    name: fallbackName,
+    email: pickPreferredMemberField(memberProfile.email, "No email available"),
+    role: pickPreferredMemberField(memberProfile.role, "Project Member"),
+    location: pickPreferredMemberField(memberProfile.location, "Location not added"),
+    about: pickPreferredMemberField(
+      memberProfile.about,
+      memberProfile.bio,
+      `${fallbackName} contributes to ${projectTitle} and helps move work across planning, delivery, and review.`
+    ),
+    photo: pickMemberValue(memberProfile.photo, memberProfile.avatar),
+    memberRole: pickPreferredMemberField(memberProfile.memberRole, "member"),
+  };
+};
+
+const mergeMemberProfileEntry = (baseProfile, incomingProfile, projectTitle) => {
+  const normalizedBase = normalizeMemberProfile(baseProfile, projectTitle);
+  const normalizedIncoming = normalizeMemberProfile(incomingProfile, projectTitle);
+
+  return {
+    ...normalizedBase,
+    ...normalizedIncoming,
+    id: normalizedIncoming.id || normalizedBase.id,
+    userId: pickPreferredMemberField(normalizedIncoming.userId, normalizedBase.userId),
+    name: pickPreferredMemberField(normalizedIncoming.name, normalizedBase.name),
+    email: pickPreferredMemberField(normalizedIncoming.email, normalizedBase.email),
+    role: pickPreferredMemberField(normalizedIncoming.role, normalizedBase.role),
+    location: pickPreferredMemberField(normalizedIncoming.location, normalizedBase.location),
+    about:
+      pickPreferredMemberField(
+        isGeneratedMemberBio(normalizedIncoming.about) ? null : normalizedIncoming.about,
+        isGeneratedMemberBio(normalizedBase.about) ? null : normalizedBase.about
+      ) ||
+      normalizedIncoming.about ||
+      normalizedBase.about,
+    photo: pickPreferredMemberField(normalizedIncoming.photo, normalizedBase.photo),
+    memberRole: pickPreferredMemberField(normalizedIncoming.memberRole, normalizedBase.memberRole),
+  };
+};
+
+const mergeMemberProfiles = (storedProfiles = [], incomingProfiles = [], projectTitle) => {
+  const mergedProfiles = new Map();
+
+  storedProfiles.forEach((profile) => {
+    const normalized = normalizeMemberProfile(profile, projectTitle);
+    if (normalized.id) {
+      mergedProfiles.set(normalized.id, normalized);
+    }
+  });
+
+  incomingProfiles.forEach((profile) => {
+    const normalized = normalizeMemberProfile(profile, projectTitle);
+    if (!normalized.id) {
+      return;
+    }
+
+    const existingProfile = mergedProfiles.get(normalized.id);
+    mergedProfiles.set(
+      normalized.id,
+      existingProfile
+        ? mergeMemberProfileEntry(existingProfile, normalized, projectTitle)
+        : normalized
+    );
+  });
+
+  return Array.from(mergedProfiles.values());
+};
+
+const syncCurrentUserMemberProfiles = (memberProfiles = [], currentUser, projectTitle) => {
+  if (!currentUser) {
+    return memberProfiles;
+  }
+
+  return memberProfiles.map((memberProfile) => {
+    const matchesCurrentUser =
+      (memberProfile.userId && currentUser._id && memberProfile.userId === currentUser._id) ||
+      (memberProfile.email && currentUser.email && memberProfile.email === currentUser.email) ||
+      (memberProfile.name && currentUser.name && memberProfile.name === currentUser.name);
+
+    if (!matchesCurrentUser) {
+      return memberProfile;
+    }
+
+    return mergeMemberProfileEntry(
+      memberProfile,
+      {
+        ...currentUser,
+        userId: currentUser._id,
+        photo: currentUser.photo,
+      },
+      projectTitle
+    );
+  });
+};
+
+const normalizeProject = (project, currentUser = null) => {
   const title = project?.title || project?.name || "Untitled Project";
   const memberEntries = Array.isArray(project?.members)
     ? project.members
@@ -78,6 +201,32 @@ const normalizeProject = (project) => {
         .map((attachment) => attachment?.fileName || attachment?.name)
         .filter(Boolean)
     : project?.attachmentFiles || [];
+  const incomingMemberProfiles = Array.isArray(project?.members)
+    ? project.members.map((member) => {
+        const user = member?.user ?? member;
+        const memberIdentity = getMemberIdentity(member);
+
+        return {
+          id: memberIdentity.id,
+          userId: user?._id || null,
+          name: user?.name || memberIdentity.label,
+          email: user?.email || `${memberIdentity.id.toLowerCase()}@taskvue.app`,
+          role: user?.role || (member?.role === "admin" ? "Admin" : "Project Member"),
+          location: user?.location || "Location not added",
+          about:
+            user?.about ||
+            `${user?.name || memberIdentity.label} contributes to ${title} and helps move work across planning, delivery, and review.`,
+          memberRole: member?.role || "member",
+        };
+      })
+    : Array.isArray(project?.memberProfiles)
+      ? project.memberProfiles
+      : [];
+  const memberProfiles = syncCurrentUserMemberProfiles(
+    mergeMemberProfiles(project?.memberProfiles || [], incomingMemberProfiles, title),
+    currentUser,
+    title
+  );
 
   return {
     ...project,
@@ -94,6 +243,7 @@ const normalizeProject = (project) => {
     joinCode: project?.joinCode || project?.projectCode || generateJoinCode(title),
     projectCode: project?.projectCode || project?.joinCode || generateJoinCode(title),
     members,
+    memberProfiles,
     memberDirectory:
       Object.keys(project?.memberDirectory || {}).length > 0
         ? project.memberDirectory
@@ -106,14 +256,14 @@ const normalizeProject = (project) => {
   };
 };
 
-const mergeProjectsWithStoredState = (incomingProjects) => {
+const mergeProjectsWithStoredState = (incomingProjects, currentUser = null) => {
   const storedProjects = readStoredProjects();
   const storedProjectMap = new Map(
-    storedProjects.map((project) => [buildProjectKey(project), normalizeProject(project)])
+    storedProjects.map((project) => [buildProjectKey(project), normalizeProject(project, currentUser)])
   );
 
   return incomingProjects.map((project) => {
-    const normalizedProject = normalizeProject(project);
+    const normalizedProject = normalizeProject(project, currentUser);
     const storedProject = storedProjectMap.get(buildProjectKey(normalizedProject));
 
     if (!storedProject) {
@@ -124,6 +274,15 @@ const mergeProjectsWithStoredState = (incomingProjects) => {
       ...normalizedProject,
       status: storedProject.status || normalizedProject.status,
       stage: storedProject.stage || normalizedProject.stage,
+      memberProfiles: syncCurrentUserMemberProfiles(
+        mergeMemberProfiles(
+          storedProject.memberProfiles,
+          normalizedProject.memberProfiles,
+          normalizedProject.title
+        ),
+        currentUser,
+        normalizedProject.title
+      ),
       memberDirectory:
         Object.keys(storedProject.memberDirectory || {}).length > 0
           ? storedProject.memberDirectory
@@ -151,6 +310,8 @@ const ProjectsContext = createContext({
 export { ProjectsContext };
 
 export function ProjectsProvider({ children }) {
+  const authInitialized = useAppSelector((state) => state.auth.initialized);
+  const currentUser = useAppSelector((state) => state.auth.user);
   const [projects, setProjects] = useState(() => readStoredProjects());
 
   useEffect(() => {
@@ -158,9 +319,7 @@ export function ProjectsProvider({ children }) {
   }, [projects]);
 
   const fetchProjects = useCallback(async () => {
-    const token = getAuthToken();
-
-    if (!token) {
+    if (!authInitialized || !currentUser) {
       return;
     }
 
@@ -174,22 +333,26 @@ export function ProjectsProvider({ children }) {
             ? response.data
             : [];
 
-      setProjects(mergeProjectsWithStoredState(nextProjects));
+      setProjects(mergeProjectsWithStoredState(nextProjects, currentUser));
     } catch (error) {
+      if (error?.response?.status === 401) {
+        return;
+      }
+
       console.error("Error fetching projects", error);
       if (projects.length === 0) {
         setProjects(cloneProjects(seedProjects));
       }
     }
-  }, [projects.length]);
+  }, [authInitialized, currentUser, projects.length]);
 
   useEffect(() => {
-    if (!getAuthToken()) {
+    if (!authInitialized || !currentUser) {
       return;
     }
 
     fetchProjects();
-  }, [fetchProjects]);
+  }, [authInitialized, currentUser, fetchProjects]);
 
   const createProject = useCallback(
     async ({
@@ -221,10 +384,10 @@ export function ProjectsProvider({ children }) {
           response?.data?.data?.project ||
           response?.data?.project ||
           response?.data;
-        const persistedProject = normalizeProject({
-          ...backendProject,
-          slug: candidateSlug,
-          status: "Planning",
+          const persistedProject = normalizeProject({
+            ...backendProject,
+            slug: candidateSlug,
+            status: "Planning",
           stage: stage || "Planning",
           owner: owner || backendProject?.createdBy?.name || "Workspace",
           admin: admin || backendProject?.createdBy?.name || owner || "Workspace",
@@ -235,10 +398,10 @@ export function ProjectsProvider({ children }) {
             Object.keys(memberDirectory).length > 0
               ? memberDirectory
               : buildMemberDirectory(uniqueMembers),
-          attachments,
-          attachmentFiles,
-          board: cloneProjectBoard(projectBoardTemplate),
-        });
+            attachments,
+            attachmentFiles,
+            board: cloneProjectBoard(projectBoardTemplate),
+          }, currentUser);
 
         setProjects((currentProjects) => [persistedProject, ...currentProjects]);
 
@@ -248,7 +411,7 @@ export function ProjectsProvider({ children }) {
         return null;
       }
     },
-    [projects]
+    [currentUser, projects]
   );
 
   const addProject = useCallback((projectData) => createProject(projectData), [createProject]);
@@ -261,8 +424,13 @@ export function ProjectsProvider({ children }) {
           (project) => project._id !== projectId && project.id !== projectId && project.slug !== projectId
         )
       );
+      return { success: true };
     } catch (error) {
       console.error("Error deleting project", error);
+      return {
+        success: false,
+        error: error.message || "Unable to delete project.",
+      };
     }
   }, []);
 
@@ -320,11 +488,11 @@ export function ProjectsProvider({ children }) {
           response?.data?.data?.project ||
           response?.data?.project ||
           response?.data;
-        const joinedProject = normalizeProject({
-          ...backendProject,
-          joinCode: backendProject?.projectCode,
-          projectCode: backendProject?.projectCode,
-        });
+         const joinedProject = normalizeProject({
+           ...backendProject,
+           joinCode: backendProject?.projectCode,
+           projectCode: backendProject?.projectCode,
+         }, currentUser);
 
         setProjects((currentProjects) => {
           const exists = currentProjects.some(
@@ -356,7 +524,7 @@ export function ProjectsProvider({ children }) {
         success: false,
         error: error.message || "We couldn't find a project for that code.",
       }));
-  }, []);
+  }, [currentUser]);
 
   const updateProjectBoard = useCallback((projectSlug, updater) => {
     setProjects((currentProjects) =>

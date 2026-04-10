@@ -21,10 +21,13 @@ const userSchema= new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['user', 'admin', 'manager'],
-        default: 'user'
+        default: 'Workspace Member'
     },
     about: {
+        type: String,
+        default: ''
+    },
+    location: {
         type: String,
         default: ''
     },

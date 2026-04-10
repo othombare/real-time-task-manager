@@ -4,19 +4,20 @@ import { setLastProtectedRoute } from "../api/auth";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 
 const ProtectedRoute = ({ children }) => {
-  const { profile, loading } = useCurrentUser();
+  const { profile, token, loading, initialized } = useCurrentUser();
   const location = useLocation();
+  const isAuthenticated = Boolean(profile || token);
 
   useEffect(() => {
-    if (!loading && profile) {
+    if (!loading && isAuthenticated) {
       setLastProtectedRoute(
         `${location.pathname}${location.search}${location.hash}`
       );
     }
-  }, [loading, location.hash, location.pathname, location.search, profile]);
+  }, [isAuthenticated, loading, location.hash, location.pathname, location.search]);
 
   // Show loading while validating authentication
-  if (loading) {
+  if (loading || !initialized) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -27,12 +28,12 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  // If no profile after loading, redirect to login
-  if (!profile) {
+  // If no authenticated session after loading, redirect to login
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // If we have a profile, show the protected content
+  // If we have a persisted session, show the protected content
   return children;
 };
 
