@@ -157,12 +157,12 @@ function ProjectTeamMembers() {
                     }`}
                   >
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                      {member.id}
+                      {getInitials(member.name)}
                     </div>
                     <div>
                       <p className="text-sm font-semibold">{member.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {member.id === currentMemberId ? "You" : member.role}
+                        {getInitials(member.name) === currentMemberId ? "You" : member.role}
                       </p>
                     </div>
                   </button>
@@ -175,7 +175,7 @@ function ProjectTeamMembers() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-base font-bold text-primary-foreground">
-                      {selectedMember.id}
+                      {getInitials(selectedMember.name)}
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold">{selectedMember.name}</h3>
