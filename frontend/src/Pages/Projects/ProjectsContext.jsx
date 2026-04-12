@@ -36,6 +36,8 @@ const readStoredProjects = () => {
 const buildProjectKey = (project) =>
   String(project?._id || project?.id || project?.projectCode || project?.joinCode || project?.slug || "");
 
+const normalizeComparableValue = (value = "") => String(value).trim().toLowerCase();
+
 const getMemberIdentity = (member) => {
   const user = member?.user ?? member;
 
@@ -47,7 +49,11 @@ const getMemberIdentity = (member) => {
     };
   }
 
-  const label = user?.name || user?.email || user?._id || "Member";
+  const label = user?.name || user?.email || member?.name || member?.email || null;
+
+  if (!label) {
+    return null;
+  }
 
   return {
     id: getInitials(label) || String(user?._id || "MB").slice(0, 2).toUpperCase(),
@@ -151,6 +157,31 @@ const mergeMemberProfiles = (storedProfiles = [], incomingProfiles = [], project
   return Array.from(mergedProfiles.values());
 };
 
+const getMemberProfileLookupKeys = (memberProfile = {}) => {
+  const keys = [
+    memberProfile.id,
+    memberProfile.userId,
+    memberProfile.email && normalizeComparableValue(memberProfile.email),
+    memberProfile.name && normalizeComparableValue(memberProfile.name),
+  ].filter(Boolean);
+
+  return Array.from(new Set(keys));
+};
+
+const filterMemberProfilesToProjectMembers = (memberProfiles = [], incomingProfiles = []) => {
+  if (incomingProfiles.length === 0) {
+    return [];
+  }
+
+  const allowedKeys = new Set(
+    incomingProfiles.flatMap((profile) => getMemberProfileLookupKeys(profile))
+  );
+
+  return memberProfiles.filter((profile) =>
+    getMemberProfileLookupKeys(profile).some((key) => allowedKeys.has(key))
+  );
+};
+
 const syncCurrentUserMemberProfiles = (memberProfiles = [], currentUser, projectTitle) => {
   if (!currentUser) {
     return memberProfiles;
@@ -183,7 +214,7 @@ const normalizeProject = (project, currentUser = null) => {
   const memberEntries = Array.isArray(project?.members)
     ? project.members
         .map(getMemberIdentity)
-        .filter((member) => Boolean(member.id))
+        .filter((member) => Boolean(member?.id && member?.label))
     : [];
   const members = memberEntries.map((member) => member.id);
   const memberDirectory = memberEntries.reduce(
@@ -223,7 +254,10 @@ const normalizeProject = (project, currentUser = null) => {
       ? project.memberProfiles
       : [];
   const memberProfiles = syncCurrentUserMemberProfiles(
-    mergeMemberProfiles(project?.memberProfiles || [], incomingMemberProfiles, title),
+    filterMemberProfilesToProjectMembers(
+      mergeMemberProfiles(project?.memberProfiles || [], incomingMemberProfiles, title),
+      incomingMemberProfiles
+    ),
     currentUser,
     title
   );
@@ -284,10 +318,13 @@ const mergeProjectsWithStoredState = (incomingProjects, currentUser = null) => {
       status: storedProject.status || normalizedProject.status,
       stage: storedProject.stage || normalizedProject.stage,
       memberProfiles: syncCurrentUserMemberProfiles(
-        mergeMemberProfiles(
-          storedProject.memberProfiles,
-          normalizedProject.memberProfiles,
-          normalizedProject.title
+        filterMemberProfilesToProjectMembers(
+          mergeMemberProfiles(
+            storedProject.memberProfiles,
+            normalizedProject.memberProfiles,
+            normalizedProject.title
+          ),
+          normalizedProject.memberProfiles
         ),
         currentUser,
         normalizedProject.title
