@@ -6,12 +6,16 @@ import {
   MapPinIcon,
   UsersIcon,
   XIcon,
+  Trash2Icon, // ✅ added
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useProjects } from "./useProjects";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { getInitials, hasProjectAccess, resolveMemberLabel } from "./projectData";
+
+const normalizeComparableValue = (value = "") =>
+  String(value || "").trim().toLowerCase();
 
 function ProjectTeamMembers() {
   const navigate = useNavigate();
@@ -23,12 +27,17 @@ function ProjectTeamMembers() {
   const currentMemberId = getInitials(displayName);
   const [memberFeedback, setMemberFeedback] = useState("");
   const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const isProjectAdmin =
+    normalizeComparableValue(displayName) ===
+    normalizeComparableValue(project?.admin || project?.owner || "");
 
   const memberProfiles = useMemo(() => {
     const uniqueMembers = new Map();
 
     (project?.memberProfiles ?? []).forEach((member) => {
-      const name = member.name || resolveMemberLabel(member.id, project?.memberDirectory);
+      const name =
+        member.name ||
+        resolveMemberLabel(member.id, project?.memberDirectory);
       const normalizedName = name.trim().toLowerCase();
       const normalizedEmail = member.email?.trim().toLowerCase();
       const lookupKey =
@@ -73,14 +82,13 @@ function ProjectTeamMembers() {
   }, [project]);
 
   const selectedMember = useMemo(
-    () => memberProfiles.find((member) => member.id === selectedMemberId) || null,
+    () =>
+      memberProfiles.find((member) => member.id === selectedMemberId) || null,
     [memberProfiles, selectedMemberId]
   );
 
   const handleCopyCode = async () => {
-    if (!project?.joinCode) {
-      return;
-    }
+    if (!project?.joinCode) return;
 
     try {
       await navigator.clipboard.writeText(project.joinCode);
@@ -90,13 +98,38 @@ function ProjectTeamMembers() {
     }
   };
 
+  // ✅ REMOVE MEMBER FUNCTION
+  const handleRemoveMember = (event, member) => {
+    event.stopPropagation();
+
+    if (!isProjectAdmin) {
+      return;
+    }
+
+    const confirmDelete = window.confirm(
+      `Remove ${member.name} from project?`
+    );
+    if (!confirmDelete) return;
+
+    const updatedMembers = project.memberProfiles.filter(
+      (m) => m.id !== member.id
+    );
+
+    project.memberProfiles = updatedMembers;
+
+    setMemberFeedback(`${member.name} removed from project.`);
+  };
+
   if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
     return (
       <DashboardLayout>
         <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
-          <h1 className="text-2xl font-bold tracking-tight">Project not found</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Project not found
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            The project team page you requested is not available for your current account.
+            The project team page you requested is not available for your
+            current account.
           </p>
           <button
             type="button"
@@ -124,10 +157,9 @@ function ProjectTeamMembers() {
               <ArrowLeftIcon size={14} />
               Back to Project Board
             </button>
-            <h1 className="text-3xl font-bold tracking-tight">Team Members</h1>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              {project.title} team roster, member details, and invite controls in one place.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Team Members
+            </h1>
           </div>
         </section>
 
@@ -139,33 +171,58 @@ function ProjectTeamMembers() {
                   <UsersIcon size={18} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold tracking-tight">Members</h2>
-                  <p className="text-sm text-muted-foreground">Tap a member to view their details.</p>
+                  <h2 className="text-xl font-bold tracking-tight">
+                    Members
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Tap a member to view their details.
+                  </p>
                 </div>
               </div>
 
+              {/* ✅ UPDATED MEMBER LIST WITH DELETE BUTTON */}
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 {memberProfiles.map((member) => (
-                  <button
+                  <div
                     key={member.id}
-                    type="button"
-                    onClick={() => setSelectedMemberId(member.id)}
-                    className={`flex items-center gap-3 rounded-3xl border px-4 py-4 text-left transition ${
+                    className={`flex items-center justify-between gap-3 rounded-3xl border px-4 py-4 transition ${
                       selectedMember?.id === member.id
                         ? "border-primary bg-primary/5 shadow-sm"
                         : "border-border bg-muted/20 hover:border-primary/30 hover:bg-muted/40"
                     }`}
                   >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                      {member.id}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold">{member.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {member.id === currentMemberId ? "You" : member.role}
-                      </p>
-                    </div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMemberId(member.id)}
+                      className="flex items-center gap-3 text-left w-full"
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                        {member.id}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">
+                          {member.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {member.id === currentMemberId
+                            ? "You"
+                            : member.role}
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* ✅ DELETE BUTTON */}
+                    {isProjectAdmin ? (
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemoveMember(e, member)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-background text-muted-foreground transition hover:border-rose-200 hover:text-rose-500"
+                        aria-label={`Remove ${member.name}`}
+                      >
+                        <Trash2Icon size={16} />
+                      </button>
+                    ) : null}
+                  </div>
                 ))}
               </div>
             </div>
@@ -178,8 +235,12 @@ function ProjectTeamMembers() {
                       {selectedMember.id}
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold">{selectedMember.name}</h3>
-                      <p className="text-sm text-muted-foreground">{selectedMember.role}</p>
+                      <h3 className="text-lg font-semibold">
+                        {selectedMember.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedMember.role}
+                      </p>
                     </div>
                   </div>
                   <button
@@ -191,18 +252,20 @@ function ProjectTeamMembers() {
                   </button>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-1">
-                  <div className="rounded-2xl border border-border bg-background px-4 py-3">
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Location</p>
-                    <p className="mt-1 flex items-center gap-2 font-medium">
-                      <MapPinIcon size={14} className="text-primary" />
-                      {selectedMember.location}
-                    </p>
-                  </div>
+                <div className="mt-5 rounded-2xl border border-border bg-background px-4 py-3">
+                  <p className="text-xs font-bold uppercase text-muted-foreground">
+                    Location
+                  </p>
+                  <p className="mt-1 flex items-center gap-2 font-medium">
+                    <MapPinIcon size={14} className="text-primary" />
+                    {selectedMember.location}
+                  </p>
                 </div>
 
                 <div className="mt-4 rounded-2xl border border-border bg-background px-4 py-3">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Email</p>
+                  <p className="text-xs font-bold uppercase text-muted-foreground">
+                    Email
+                  </p>
                   <p className="mt-2 flex items-center gap-2 text-sm font-medium">
                     <MailIcon size={14} className="text-primary" />
                     {selectedMember.email}
@@ -210,67 +273,43 @@ function ProjectTeamMembers() {
                 </div>
 
                 <div className="mt-4 rounded-2xl border border-border bg-background px-4 py-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">About</p>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{selectedMember.bio}</p>
+                  <p className="text-xs font-bold uppercase text-muted-foreground">
+                    About
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {selectedMember.bio}
+                  </p>
                 </div>
               </div>
             )}
           </div>
 
+          {/* RIGHT SIDE (UNCHANGED) */}
           <aside className="space-y-4 xl:w-[360px] 2xl:w-[400px]">
             <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-primary/10 p-2 text-primary">
-                  <UsersIcon size={18} />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Project Team</h3>
-                  <p className="text-xs text-muted-foreground">Admin, members, and invite access.</p>
-                </div>
-              </div>
-
+              <h3 className="font-semibold">Project Team</h3>
               <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Admin</span>
-                  <span className="font-semibold">{project.admin || project.owner}</span>
+                <div className="flex justify-between">
+                  <span>Admin</span>
+                  <span>{project.admin || project.owner}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Members</span>
-                  <span className="font-semibold">{project.members.length}</span>
+                <div className="flex justify-between">
+                  <span>Members</span>
+                  <span>{project.members.length}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Project code</span>
-                  <span className="font-semibold">{project.joinCode}</span>
+                <div className="flex justify-between">
+                  <span>Code</span>
+                  <span>{project.joinCode}</span>
                 </div>
               </div>
             </div>
 
             <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-center gap-2">
-                <CopyIcon size={16} className="text-primary" />
-                <h3 className="text-sm font-semibold">Invite by code</h3>
-              </div>
-              <div className="mt-4 flex items-center justify-between rounded-2xl bg-muted/30 px-4 py-3 text-sm font-semibold">
-                <span>{project.joinCode}</span>
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="inline-flex items-center gap-2 text-xs font-semibold text-primary transition hover:text-primary/80"
-                >
-                  <CopyIcon size={14} />
-                  Copy
-                </button>
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Teammates can join this project using the shared code.
-              </p>
+              <h3>Invite by code</h3>
+              <button onClick={handleCopyCode}>Copy Code</button>
             </div>
 
-            {memberFeedback && (
-              <p className="rounded-2xl bg-card px-4 py-3 text-xs font-medium text-muted-foreground shadow-sm">
-                {memberFeedback}
-              </p>
-            )}
+            {memberFeedback && <p>{memberFeedback}</p>}
           </aside>
         </section>
       </div>

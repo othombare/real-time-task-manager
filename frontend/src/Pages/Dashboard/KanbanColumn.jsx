@@ -5,7 +5,17 @@ import { TaskCard } from "./TaskCard"
 import { StrictModeDroppable } from "./StrictModeDroppable"
 import { cn } from "../../lib/utils"
 
-export function KanbanColumn({ title, tasks, color, droppableId, onAddTask, onUpdateTask }) {
+export function KanbanColumn({
+  title,
+  tasks,
+  color,
+  droppableId,
+  onAddTask,
+  onUpdateTask,
+  onDeleteTask,
+  currentUserName,
+  currentUserId,
+}) {
   return (
     <div className="flex flex-col gap-4 kanban-column flex-1 min-w-[300px]">
       <div className="flex items-center justify-between px-1">
@@ -61,6 +71,9 @@ export function KanbanColumn({ title, tasks, color, droppableId, onAddTask, onUp
                         status={task.status || title}
                         statusOptions={["To Do", "In Progress", "In Review", "Done"]}
                         onUpdateTask={onUpdateTask}
+                        onDeleteTask={onDeleteTask}
+                        currentUserName={currentUserName}
+                        currentUserId={currentUserId}
                       />
                     </div>
                   )}

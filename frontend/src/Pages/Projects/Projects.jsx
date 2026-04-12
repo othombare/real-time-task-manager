@@ -3,7 +3,6 @@ import {
   ArrowRightIcon,
   BriefcaseBusinessIcon,
   FolderInputIcon,
-  FolderKanbanIcon,
   KeyRoundIcon,
   PaperclipIcon,
   Trash2Icon,
@@ -25,12 +24,22 @@ const getProjectOwnerId = (project) => {
   return typeof project.createdBy === "object" ? project.createdBy._id : project.createdBy;
 };
 
+const isProjectCompleted = (project) => {
+  const boardColumns = project?.board ?? [];
+  const workingColumns = boardColumns.filter((column) =>
+    ["To Do", "In Progress", "In Review"].includes(column.title)
+  );
+
+  return workingColumns.every((column) => (column.tasks ?? []).length === 0);
+};
+
 function Projects() {
   const navigate = useNavigate();
   const { profile } = useCurrentUser();
   const { projects, joinProjectByCode, removeProject } = useProjects();
   const [joinCode, setJoinCode] = useState("");
   const [joinFeedback, setJoinFeedback] = useState("");
+  const [joinFeedbackType, setJoinFeedbackType] = useState("neutral");
   const [isJoining, setIsJoining] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState(null);
   const displayName = profile?.name || "Workspace User";
@@ -40,12 +49,22 @@ function Projects() {
     () => projects.filter((project) => hasProjectAccess(project, memberId, displayName)),
     [displayName, memberId, projects]
   );
+  const completedProjects = useMemo(
+    () => visibleProjects.filter((project) => isProjectCompleted(project)),
+    [visibleProjects]
+  );
+  const activeProjects = useMemo(
+    () => visibleProjects.filter((project) => !isProjectCompleted(project)),
+    [visibleProjects]
+  );
 
   const handleJoinProject = async () => {
     setJoinFeedback("");
+    setJoinFeedbackType("neutral");
 
     if (!joinCode.trim()) {
       setJoinFeedback("Enter a project code first.");
+      setJoinFeedbackType("error");
       return;
     }
 
@@ -55,11 +74,13 @@ function Projects() {
 
     if (!result.success) {
       setJoinFeedback(result.error);
+      setJoinFeedbackType("error");
       return;
     }
 
     setJoinCode("");
     setJoinFeedback(`Joined ${result.projectTitle}. Redirecting you now.`);
+    setJoinFeedbackType("success");
     navigate(`/projects/${result.projectSlug}`);
   };
 
@@ -98,7 +119,7 @@ function Projects() {
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">Delivery</p>
             <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
             <p className="text-sm text-muted-foreground">
-              A project view for tracking active initiatives and overall momentum.
+              Here is the list of projects you are involved in. You can create a new project, join an existing one with a code, or manage your current projects.
             </p>
           </div>
 
@@ -107,8 +128,7 @@ function Projects() {
               <BriefcaseBusinessIcon size={18} />
             </div>
             <div>
-              <p className="text-sm font-semibold">{visibleProjects.length} active projects</p>
-              <p className="text-xs text-muted-foreground">Projects you can access from this workspace</p>
+              <p className="text-sm font-semibold">{activeProjects.length} active projects</p>
             </div>
           </div>
         </section>
@@ -180,39 +200,23 @@ function Projects() {
                 </div>
                 <div>
                   <h3 className="font-semibold">Portfolio Health</h3>
-                  <p className="text-xs text-muted-foreground">Current delivery pulse.</p>
+                  
                 </div>
               </div>
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Active</span>
-                  <span className="font-semibold">{visibleProjects.length}</span>
+                  <span className="font-semibold">{activeProjects.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Boards ready</span>
-                  <span className="font-semibold">
-                    {visibleProjects.filter((project) => (project.board ?? []).length > 0).length}
-                  </span>
+                  <span className="text-muted-foreground">Completed</span>
+                  <span className="font-semibold">{completedProjects.length}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">With attachments</span>
-                  <span className="font-semibold">
-                    {visibleProjects.filter((project) => (project.attachments ?? 0) > 0).length}
-                  </span>
-                </div>
+                
               </div>
             </div>
 
-            <div className="rounded-3xl border border-primary/20 bg-primary/5 p-5 shadow-sm">
-              <div className="flex items-center gap-3 text-primary">
-                <FolderKanbanIcon size={18} />
-                <h3 className="font-semibold">Boards Ready</h3>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Open any project card to see its Jira-style board with `To Do`, `In Progress`, `In Review`, and `Done` columns.
-              </p>
-            </div>
-
+            
             <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="rounded-2xl bg-primary/10 p-2 text-primary">
@@ -236,6 +240,7 @@ function Projects() {
                     onChange={(event) => {
                       setJoinCode(event.target.value.toUpperCase());
                       setJoinFeedback("");
+                      setJoinFeedbackType("neutral");
                     }}
                     placeholder="Enter group code"
                     className="h-12 w-full rounded-2xl border border-input bg-background pl-11 pr-4 text-sm uppercase outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
@@ -249,11 +254,17 @@ function Projects() {
                 >
                   {isJoining ? "Joining..." : "Join project"}
                 </button>
-                <p className="text-xs text-muted-foreground">
-                  Teammates can share the code generated during project creation.
-                </p>
+                
                 {joinFeedback && (
-                  <p className="rounded-2xl bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
+                  <p
+                    className={`rounded-2xl px-3 py-2 text-xs font-medium ${
+                      joinFeedbackType === "error"
+                        ? "bg-rose-50 text-rose-600"
+                        : joinFeedbackType === "success"
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-muted text-muted-foreground"
+                    }`}
+                  >
                     {joinFeedback}
                   </p>
                 )}

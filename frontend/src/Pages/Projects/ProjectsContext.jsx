@@ -227,6 +227,15 @@ const normalizeProject = (project, currentUser = null) => {
     currentUser,
     title
   );
+  const board = cloneProjectBoard(project?.board).map((column) => ({
+    ...column,
+    tasks: (column.tasks || []).map((task) => ({
+      ...task,
+      status: task.status || column.title,
+      createdBy: task.createdBy || project?.createdBy?.name || project?.owner || "Workspace",
+      createdByUserId: task.createdByUserId || task?.createdBy?._id || null,
+    })),
+  }));
 
   return {
     ...project,
@@ -252,7 +261,7 @@ const normalizeProject = (project, currentUser = null) => {
           : buildMemberDirectory(members),
     attachments,
     attachmentFiles,
-    board: cloneProjectBoard(project?.board),
+    board,
   };
 };
 
@@ -294,6 +303,34 @@ const mergeProjectsWithStoredState = (incomingProjects, currentUser = null) => {
   });
 };
 
+const INVALID_PROJECT_CODE_MESSAGE = "No project with this ID exists, please try again.";
+const INVALID_PROJECT_CODE_PATTERNS = [
+  "not found",
+  "invalid",
+  "join project",
+  "project code",
+  "unable to join",
+  "user belonging to this token does no longer exist",
+  "token does no longer exist",
+];
+
+const normalizeComparableValue = (value = "") => String(value || "").trim().toLowerCase();
+
+const canManageTask = (task, actor) => {
+  if (!task || !actor) {
+    return false;
+  }
+
+  if (actor.userId && task.createdByUserId && actor.userId === task.createdByUserId) {
+    return true;
+  }
+
+  return (
+    Boolean(actor.name) &&
+    normalizeComparableValue(actor.name) === normalizeComparableValue(task.createdBy)
+  );
+};
+
 const ProjectsContext = createContext({
   projects: [],
   createProject: () => null,
@@ -305,6 +342,7 @@ const ProjectsContext = createContext({
   addProjectMember: () => ({ success: false }),
   updateProjectBoard: () => {},
   updateProjectTask: () => {},
+  deleteProjectTask: () => ({ success: false }),
 });
 
 export { ProjectsContext };
@@ -475,7 +513,7 @@ export function ProjectsProvider({ children }) {
     return result;
   }, []);
 
-  const joinProjectByCode = useCallback((code, memberName) => {
+  const joinProjectByCode = useCallback((code) => {
     const normalizedCode = code.trim().toUpperCase();
 
     if (!normalizedCode) {
@@ -522,74 +560,178 @@ export function ProjectsProvider({ children }) {
       })
       .catch((error) => ({
         success: false,
-        error: error.message || "We couldn't find a project for that code.",
+        error:
+          error?.response?.status === 404 ||
+          INVALID_PROJECT_CODE_PATTERNS.some((pattern) =>
+            String(error?.message || "").toLowerCase().includes(pattern)
+          )
+            ? INVALID_PROJECT_CODE_MESSAGE
+            : error?.message || INVALID_PROJECT_CODE_MESSAGE,
       }));
   }, [currentUser]);
 
-  const updateProjectBoard = useCallback((projectSlug, updater) => {
+  const updateProjectBoard = useCallback((projectSlug, updater, actor = null) => {
+    let wasUpdated = false;
+    let errorMessage = "Project not found.";
+
     setProjects((currentProjects) =>
-      currentProjects.map((project) =>
-        project.slug === projectSlug
-          ? {
-              ...project,
-              board: updater(cloneProjectBoard(project.board)),
-            }
-          : project
-      )
+      currentProjects.map((project) => {
+        if (project.slug !== projectSlug) {
+          return project;
+        }
+
+        const nextBoard = updater(cloneProjectBoard(project.board), {
+          canManageTask: (task) => canManageTask(task, actor),
+        });
+
+        if (nextBoard === null) {
+          errorMessage = "Only the person who added this task can update or delete it.";
+          return project;
+        }
+
+        wasUpdated = true;
+        return {
+          ...project,
+          board: nextBoard,
+        };
+      })
     );
+
+    return wasUpdated
+      ? { success: true }
+      : { success: false, error: errorMessage };
   }, []);
 
-  const updateProjectTask = useCallback((projectSlug, taskId, updates) => {
+  const updateProjectTask = useCallback((projectSlug, taskId, updates, actor = null) => {
+    let result = { success: false, error: "Project not found." };
+
     setProjects((currentProjects) =>
-      currentProjects.map((project) =>
-        project.slug === projectSlug
+      currentProjects.map((project) => {
+        if (project.slug !== projectSlug) {
+          return project;
+        }
+
+        const currentStatus = project.board.find((column) =>
+          column.tasks.some((task) => task.id === taskId)
+        )?.title;
+        const nextStatus = updates.status || currentStatus;
+
+        if (!currentStatus) {
+          result = { success: false, error: "Task not found." };
+          return project;
+        }
+
+        let taskToUpdate = null;
+        let blockedUpdate = false;
+
+        const columnsWithoutTask = project.board.map((column) => ({
+          ...column,
+          tasks: column.tasks.filter((task) => {
+            if (task.id !== taskId) {
+              return true;
+            }
+
+            if (!canManageTask(task, actor)) {
+              blockedUpdate = true;
+              return true;
+            }
+
+            taskToUpdate = {
+              ...task,
+              ...updates,
+              status: nextStatus,
+            };
+            return false;
+          }),
+        }));
+
+        if (blockedUpdate) {
+          result = {
+            success: false,
+            error: "Only the person who added this task can update or delete it.",
+          };
+          return project;
+        }
+
+        if (!taskToUpdate) {
+          result = { success: false, error: "Task not found." };
+          return project;
+        }
+
+        result = { success: true };
+        return {
+          ...project,
+          board: columnsWithoutTask.map((column) =>
+            column.title === nextStatus
+              ? {
+                  ...column,
+                  tasks: [taskToUpdate, ...column.tasks],
+                }
+              : column
+          ),
+        };
+      })
+    );
+
+    return result;
+  }, []);
+
+  const deleteProjectTask = useCallback((projectSlug, taskId, actor = null) => {
+    let result = { success: false, error: "Project not found." };
+
+    setProjects((currentProjects) =>
+      currentProjects.map((project) => {
+        if (project.slug !== projectSlug) {
+          return project;
+        }
+
+        let taskFound = false;
+        let taskDeleted = false;
+        let blockedDelete = false;
+
+        const nextBoard = project.board.map((column) => ({
+          ...column,
+          tasks: column.tasks.filter((task) => {
+            if (task.id !== taskId) {
+              return true;
+            }
+
+            taskFound = true;
+
+            if (!canManageTask(task, actor)) {
+              blockedDelete = true;
+              return true;
+            }
+
+            taskDeleted = true;
+            return false;
+          }),
+        }));
+
+        if (blockedDelete) {
+          result = {
+            success: false,
+            error: "Only the person who added this task can update or delete it.",
+          };
+          return project;
+        }
+
+        if (!taskFound) {
+          result = { success: false, error: "Task not found." };
+          return project;
+        }
+
+        result = taskDeleted ? { success: true } : { success: false, error: "Task not found." };
+        return taskDeleted
           ? {
               ...project,
-              board: (() => {
-                const currentStatus = project.board.find((column) =>
-                  column.tasks.some((task) => task.id === taskId)
-                )?.title;
-                const nextStatus = updates.status || currentStatus;
-
-                if (!currentStatus) {
-                  return project.board;
-                }
-
-                let taskToUpdate = null;
-
-                const columnsWithoutTask = project.board.map((column) => ({
-                  ...column,
-                  tasks: column.tasks.filter((task) => {
-                    if (task.id !== taskId) {
-                      return true;
-                    }
-
-                    taskToUpdate = {
-                      ...task,
-                      ...updates,
-                      status: nextStatus,
-                    };
-                    return false;
-                  }),
-                }));
-
-                if (!taskToUpdate) {
-                  return project.board;
-                }
-
-                return columnsWithoutTask.map((column) =>
-                  column.title === nextStatus
-                    ? {
-                        ...column,
-                        tasks: [taskToUpdate, ...column.tasks],
-                      }
-                    : column
-                );
-              })(),
+              board: nextBoard,
             }
-          : project
-      )
+          : project;
+      })
     );
+
+    return result;
   }, []);
 
   const value = useMemo(
@@ -604,6 +746,7 @@ export function ProjectsProvider({ children }) {
       addProjectMember,
       updateProjectBoard,
       updateProjectTask,
+      deleteProjectTask,
     }),
     [
       addProject,
@@ -615,6 +758,7 @@ export function ProjectsProvider({ children }) {
       removeProject,
       updateProjectBoard,
       updateProjectTask,
+      deleteProjectTask,
     ]
   );
 

@@ -7,7 +7,11 @@ const normalizeApiError = (error, fallbackMessage) => {
     error?.message ||
     fallbackMessage;
 
-  return new Error(message);
+  const normalizedError = new Error(message);
+  normalizedError.response = error?.response;
+  normalizedError.status = error?.response?.status || error?.status;
+  normalizedError.data = error?.response?.data;
+  return normalizedError;
 };
 
 export const getProjects = async () => {

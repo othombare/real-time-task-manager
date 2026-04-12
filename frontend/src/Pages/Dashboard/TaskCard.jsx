@@ -6,6 +6,7 @@ import {
   PlusIcon,
   MessageSquareIcon,
   PaperclipIcon,
+  Trash2Icon,
   UserIcon,
   XIcon,
 } from "lucide-react"
@@ -29,6 +30,7 @@ export function TaskCard({
   priority,
   assignee,
   createdBy,
+  createdByUserId,
   dueDate,
   comments = 0,
   commentsList = [],
@@ -36,6 +38,9 @@ export function TaskCard({
   attachmentFiles = [],
   projectName,
   onUpdateTask,
+  onDeleteTask,
+  currentUserName,
+  currentUserId,
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeSection, setActiveSection] = useState("details")
@@ -49,6 +54,10 @@ export function TaskCard({
   const commentCount = Math.max(comments, commentsList.length)
   const attachmentCount = Math.max(attachments, attachmentFiles.length)
   const resolvedCreatorName = memberNameMap[createdBy] || createdBy || "Workspace"
+  const canManageTask =
+    (Boolean(currentUserId) && Boolean(createdByUserId) && currentUserId === createdByUserId) ||
+    (Boolean(currentUserName) &&
+      String(currentUserName).trim().toLowerCase() === String(createdBy || "").trim().toLowerCase())
 
   const openDetails = (section = "details") => {
     setActiveSection(section)
@@ -58,7 +67,7 @@ export function TaskCard({
   const handleAddComment = () => {
     const nextComment = commentDraft.trim()
 
-    if (!nextComment || !onUpdateTask) {
+    if (!nextComment || !onUpdateTask || !canManageTask) {
       return
     }
 
@@ -73,7 +82,7 @@ export function TaskCard({
   const handleAttachmentChange = (event) => {
     const selectedNames = Array.from(event.target.files || []).map((file) => file.name)
 
-    if (selectedNames.length === 0 || !onUpdateTask) {
+    if (selectedNames.length === 0 || !onUpdateTask || !canManageTask) {
       return
     }
 
@@ -84,6 +93,20 @@ export function TaskCard({
 
     event.target.value = ""
     setActiveSection("attachments")
+  }
+
+  const handleDeleteTask = () => {
+    if (!onDeleteTask || !canManageTask) {
+      return
+    }
+
+    const confirmed = window.confirm(`Delete "${title}"?`)
+    if (!confirmed) {
+      return
+    }
+
+    onDeleteTask(id)
+    setIsOpen(false)
   }
 
   return (
@@ -279,7 +302,7 @@ export function TaskCard({
                     <span className="text-xs text-muted-foreground">{commentCount} total</span>
                   </div>
 
-                  {activeSection === "comments" && onUpdateTask && (
+                  {activeSection === "comments" && onUpdateTask && canManageTask && (
                     <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
                       <textarea
                         value={commentDraft}
@@ -297,6 +320,11 @@ export function TaskCard({
                           Add comment
                         </button>
                       </div>
+                    </div>
+                  )}
+                  {activeSection === "comments" && onUpdateTask && !canManageTask && (
+                    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                      Only the person who added this task can update or delete it.
                     </div>
                   )}
                   {commentsList.length > 0 ? (
@@ -325,7 +353,7 @@ export function TaskCard({
                     <span className="text-xs text-muted-foreground">{attachmentCount} total</span>
                   </div>
 
-                  {activeSection === "attachments" && onUpdateTask && (
+                  {activeSection === "attachments" && onUpdateTask && canManageTask && (
                     <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
                       <input
                         ref={attachmentInputRef}
@@ -334,6 +362,11 @@ export function TaskCard({
                         onChange={handleAttachmentChange}
                         className="block w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-muted-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary"
                       />
+                    </div>
+                  )}
+                  {activeSection === "attachments" && onUpdateTask && !canManageTask && (
+                    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                      Only the person who added this task can update or delete it.
                     </div>
                   )}
 
@@ -346,6 +379,19 @@ export function TaskCard({
                       No files attached to this task yet.
                     </div>
                   )}
+                </div>
+              )}
+
+              {canManageTask && onDeleteTask && (
+                <div className="mt-5 border-t border-border pt-4">
+                  <button
+                    type="button"
+                    onClick={handleDeleteTask}
+                    className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+                  >
+                    <Trash2Icon size={14} />
+                    Delete task
+                  </button>
                 </div>
               )}
             </motion.div>

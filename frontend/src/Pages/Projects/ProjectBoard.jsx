@@ -21,10 +21,17 @@ function ProjectBoard() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
   const { profile } = useCurrentUser();
-  const { getProjectBySlug, updateProjectBoard, updateProjectTask } = useProjects();
+  const { getProjectBySlug, updateProjectBoard, updateProjectTask, deleteProjectTask } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
+  const currentActor = useMemo(
+    () => ({
+      userId: profile?._id || null,
+      name: displayName,
+    }),
+    [displayName, profile?._id]
+  );
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("To Do");
   const boardColumns = useMemo(
@@ -51,7 +58,7 @@ function ProjectBoard() {
       return;
     }
 
-    updateProjectBoard(projectSlug, (currentColumns) => {
+    const updateResult = updateProjectBoard(projectSlug, (currentColumns, helpers = {}) => {
       const nextColumns = currentColumns.map((column) => ({
         ...column,
         tasks: [...column.tasks],
@@ -74,13 +81,21 @@ function ProjectBoard() {
         return currentColumns;
       }
 
+      if (!helpers.canManageTask?.(movedTask)) {
+        return null;
+      }
+
       destinationColumn.tasks.splice(destination.index, 0, {
         ...movedTask,
         status: destinationColumn.title,
       });
 
       return nextColumns;
-    });
+    }, currentActor);
+
+    if (!updateResult?.success && updateResult?.error) {
+      window.alert(updateResult.error);
+    }
   };
 
 
@@ -107,6 +122,7 @@ function ProjectBoard() {
                   ...newTask,
                   status: newTask.status,
                   createdBy: newTask.createdBy || profile?.name || "Workspace",
+                  createdByUserId: newTask.createdByUserId || profile?._id || null,
                 },
                 ...column.tasks,
               ],
@@ -122,7 +138,17 @@ function ProjectBoard() {
   };
 
   const handleUpdateTask = (taskId, updates) => {
-    updateProjectTask(projectSlug, taskId, updates);
+    const result = updateProjectTask(projectSlug, taskId, updates, currentActor);
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
+    }
+  };
+
+  const handleDeleteTask = (taskId) => {
+    const result = deleteProjectTask(projectSlug, taskId, currentActor);
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
+    }
   };
 
   if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
@@ -239,9 +265,7 @@ function ProjectBoard() {
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Project Board</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Organize work the way teams usually do in Jira: backlog into progress into delivery.
-                  </p>
+                  
                 </div>
               </div>
 
@@ -254,6 +278,9 @@ function ProjectBoard() {
                       droppableId={column.title}
                       onAddTask={openAddTaskModal}
                       onUpdateTask={handleUpdateTask}
+                      onDeleteTask={handleDeleteTask}
+                      currentUserName={displayName}
+                      currentUserId={profile?._id || null}
                     />
                   ))}
                 </div>
