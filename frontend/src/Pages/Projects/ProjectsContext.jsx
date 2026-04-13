@@ -38,6 +38,47 @@ const buildProjectKey = (project) =>
 
 const normalizeComparableValue = (value = "") => String(value).trim().toLowerCase();
 
+const normalizeAttachmentEntry = (attachment, index = 0) => {
+  if (typeof attachment === "string") {
+    const trimmedName = attachment.trim();
+
+    return {
+      id: `${trimmedName || "attachment"}-${index}`,
+      name: trimmedName || `Attachment ${index + 1}`,
+      sizeLabel: null,
+      uploadedAt: null,
+      uploadedBy: null,
+      url: null,
+    };
+  }
+
+  const fileName =
+    attachment?.fileName ||
+    attachment?.name ||
+    attachment?.originalName ||
+    attachment?.title ||
+    `Attachment ${index + 1}`;
+
+  return {
+    id: String(
+      attachment?._id ||
+        attachment?.id ||
+        attachment?.key ||
+        `${fileName}-${index}`
+    ),
+    name: fileName,
+    sizeLabel: attachment?.sizeLabel || attachment?.size || null,
+    uploadedAt: attachment?.createdAt || attachment?.uploadedAt || null,
+    uploadedBy:
+      attachment?.uploadedBy?.name ||
+      attachment?.uploadedBy ||
+      attachment?.createdBy?.name ||
+      attachment?.createdBy ||
+      null,
+    url: attachment?.url || attachment?.fileUrl || null,
+  };
+};
+
 const getMemberIdentity = (member) => {
   const user = member?.user ?? member;
 
@@ -227,11 +268,20 @@ const normalizeProject = (project, currentUser = null) => {
   const attachments = Array.isArray(project?.attachments)
     ? project.attachments.length
     : Number(project?.attachments) || 0;
-  const attachmentFiles = Array.isArray(project?.attachments)
-    ? project.attachments
-        .map((attachment) => attachment?.fileName || attachment?.name)
-        .filter(Boolean)
-    : project?.attachmentFiles || [];
+  const attachmentItems = Array.isArray(project?.attachments)
+    ? project.attachments.map((attachment, index) => normalizeAttachmentEntry(attachment, index))
+    : (project?.attachmentItems || project?.attachmentFiles || []).map((attachment, index) =>
+        normalizeAttachmentEntry(attachment, index)
+      );
+  const resolvedAttachmentItems =
+    attachmentItems.length > 0
+      ? attachmentItems
+      : Array.from({ length: attachments }, (_, index) =>
+          normalizeAttachmentEntry(`Attachment ${index + 1}`, index)
+        );
+  const attachmentFiles = resolvedAttachmentItems
+    .map((attachment) => attachment.name)
+    .filter(Boolean);
   const incomingMemberProfiles = Array.isArray(project?.members)
     ? project.members.map((member) => {
         const user = member?.user ?? member;
@@ -294,6 +344,7 @@ const normalizeProject = (project, currentUser = null) => {
           ? memberDirectory
           : buildMemberDirectory(members),
     attachments,
+    attachmentItems: resolvedAttachmentItems,
     attachmentFiles,
     board,
   };
@@ -334,6 +385,10 @@ const mergeProjectsWithStoredState = (incomingProjects, currentUser = null) => {
           ? storedProject.memberDirectory
           : normalizedProject.memberDirectory,
       attachments: storedProject.attachments ?? normalizedProject.attachments,
+      attachmentItems:
+        Array.isArray(storedProject.attachmentItems) && storedProject.attachmentItems.length > 0
+          ? storedProject.attachmentItems
+          : normalizedProject.attachmentItems,
       attachmentFiles: storedProject.attachmentFiles || normalizedProject.attachmentFiles,
       board: cloneProjectBoard(storedProject.board || normalizedProject.board),
     };
@@ -380,6 +435,7 @@ const ProjectsContext = createContext({
   updateProjectBoard: () => {},
   updateProjectTask: () => {},
   deleteProjectTask: () => ({ success: false }),
+  deleteProjectAttachment: () => ({ success: false }),
 });
 
 export { ProjectsContext };
@@ -440,6 +496,7 @@ export function ProjectsProvider({ children }) {
       memberDirectory = {},
       joinCode,
       attachments = 0,
+      attachmentItems = [],
       attachmentFiles = [],
     }) => {
       const baseSlug = createProjectSlug(title) || `project-${Date.now()}`;
@@ -474,6 +531,10 @@ export function ProjectsProvider({ children }) {
               ? memberDirectory
               : buildMemberDirectory(uniqueMembers),
             attachments,
+            attachmentItems:
+              attachmentItems.length > 0
+                ? attachmentItems
+                : attachmentFiles.map((fileName, index) => normalizeAttachmentEntry(fileName, index)),
             attachmentFiles,
             board: cloneProjectBoard(projectBoardTemplate),
           }, currentUser);
@@ -771,6 +832,37 @@ export function ProjectsProvider({ children }) {
     return result;
   }, []);
 
+  const deleteProjectAttachment = useCallback((projectSlug, attachmentId) => {
+    let result = { success: false, error: "Project not found." };
+
+    setProjects((currentProjects) =>
+      currentProjects.map((project) => {
+        if (project.slug !== projectSlug) {
+          return project;
+        }
+
+        const nextAttachmentItems = (project.attachmentItems || []).filter(
+          (attachment) => attachment.id !== attachmentId
+        );
+
+        if (nextAttachmentItems.length === (project.attachmentItems || []).length) {
+          result = { success: false, error: "Attachment not found." };
+          return project;
+        }
+
+        result = { success: true };
+        return {
+          ...project,
+          attachments: nextAttachmentItems.length,
+          attachmentItems: nextAttachmentItems,
+          attachmentFiles: nextAttachmentItems.map((attachment) => attachment.name),
+        };
+      })
+    );
+
+    return result;
+  }, []);
+
   const value = useMemo(
     () => ({
       projects,
@@ -784,6 +876,7 @@ export function ProjectsProvider({ children }) {
       updateProjectBoard,
       updateProjectTask,
       deleteProjectTask,
+      deleteProjectAttachment,
     }),
     [
       addProject,
@@ -796,6 +889,7 @@ export function ProjectsProvider({ children }) {
       updateProjectBoard,
       updateProjectTask,
       deleteProjectTask,
+      deleteProjectAttachment,
     ]
   );
 
