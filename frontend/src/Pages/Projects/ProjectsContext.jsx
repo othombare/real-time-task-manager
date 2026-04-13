@@ -351,7 +351,7 @@ const INVALID_PROJECT_CODE_PATTERNS = [
   "token does no longer exist",
 ];
 
-const normalizeComparableValue = (value = "") => String(value || "").trim().toLowerCase();
+
 
 const canManageTask = (task, actor) => {
   if (!task || !actor) {

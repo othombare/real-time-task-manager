@@ -17,6 +17,7 @@ import Notifications from "../Pages/Notifications/Notifications";
 import MyProfile from "../Pages/MyProfile/MyProfile";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
+import Attachments from "../Pages/Attachments/Attachments";
 
 const AppRouter = () => {
   return (
@@ -92,6 +93,14 @@ const AppRouter = () => {
           element={
             <ProtectedRoute>
               <ProjectBoard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectSlug/attachments"
+          element={
+            <ProtectedRoute>
+              <Attachments />
             </ProtectedRoute>
           }
         />

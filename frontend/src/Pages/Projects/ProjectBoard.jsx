@@ -7,6 +7,8 @@ import {
   PlusIcon,
   UsersIcon,
   BriefcaseBusinessIcon,
+  PinIcon,
+  PaperclipIcon,
 } from "lucide-react";
 import { DragDropContext } from "react-beautiful-dnd";
 import { useNavigate, useParams } from "react-router-dom";
@@ -190,6 +192,18 @@ function ProjectBoard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+
+
+          <button
+              type="button"
+              onClick={() => navigate(`/projects/${project.slug}/attachments`)}
+              className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
+            >
+              <PaperclipIcon size={16} />
+              View Attachments
+            </button>
+
+
             <button
               type="button"
               onClick={() => navigate(`/projects/${project.slug}/team-members`)}
