@@ -209,9 +209,10 @@ export function TaskCard({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.96 }}
               transition={{ duration: 0.18 }}
-              className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl"
+              className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-2xl"
               onClick={(event) => event.stopPropagation()}
             >
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1 custom-scrollbar">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-3">
                   <span className={cn(
@@ -328,7 +329,7 @@ export function TaskCard({
                     </div>
                   )}
                   {commentsList.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="max-h-56 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
                       {commentsList.map((comment, index) => (
                         <div
                           key={`${title}-comment-${index}`}
@@ -371,8 +372,17 @@ export function TaskCard({
                   )}
 
                   {attachmentFiles.length > 0 ? (
-                    <div className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                      {attachmentFiles.join(", ")}
+                    <div className="max-h-56 overflow-y-auto rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 pr-3 text-sm text-muted-foreground custom-scrollbar">
+                      <div className="space-y-2">
+                        {attachmentFiles.map((fileName, index) => (
+                          <div
+                            key={`${title}-attachment-${index}`}
+                            className="rounded-xl border border-border/60 bg-background/80 px-3 py-2"
+                          >
+                            {fileName}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
@@ -394,6 +404,7 @@ export function TaskCard({
                   </button>
                 </div>
               )}
+              </div>
             </motion.div>
           </motion.div>
         )}

@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftIcon,
+  FolderPlusIcon,
   CalendarIcon,
   FolderOpenIcon,
   PaperclipIcon,
-  ShieldCheckIcon,
   Trash2Icon,
   UserIcon,
 } from "lucide-react";
@@ -54,16 +54,68 @@ function Attachments() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
   const { profile } = useCurrentUser();
-  const { getProjectBySlug, deleteProjectAttachment } = useProjects();
+  const attachmentInputRef = useRef(null);
+  const { getProjectBySlug, addProjectAttachments, deleteProjectAttachment, fetchProjects } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
   const [feedback, setFeedback] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState([]);
 
   const canDeleteAttachments = isProjectAdmin(project, profile, displayName);
-  const attachments = useMemo(() => project?.attachmentItems || [], [project]);
+  const attachments = useMemo(() => {
+    const attachmentMap = new Map();
 
-  const handleDeleteAttachment = (attachment) => {
+    (project?.attachmentItems || []).forEach((attachment, index) => {
+      const key = attachment.id || `${attachment.name}-${index}`;
+      if (!attachmentMap.has(key)) {
+        attachmentMap.set(key, {
+          ...attachment,
+          source: "project",
+        });
+      }
+    });
+
+    return Array.from(attachmentMap.values());
+  }, [project]);
+
+  const openAttachment = (attachment) => {
+    if (!attachment?.url) {
+      window.alert("This attachment does not have a file link yet, so it cannot be opened.");
+      return;
+    }
+
+    window.open(attachment.url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleAttachmentChange = (event) => {
+    setSelectedFiles(Array.from(event.target.files || []));
+    setFeedback("");
+  };
+
+  const handleAddAttachments = async () => {
+    if (!project?._id) {
+      window.alert("Project not found.");
+      return;
+    }
+
+    const result = await addProjectAttachments(project._id, selectedFiles);
+
+    if (!result?.success) {
+      window.alert(result?.error || "Unable to add attachments.");
+      return;
+    }
+
+    setFeedback(
+      `${result.attachments.length} attachment${result.attachments.length > 1 ? "s were" : " was"} added to ${project.title}.`
+    );
+    setSelectedFiles([]);
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteAttachment = async (attachment) => {
     if (!canDeleteAttachments) {
       window.alert("Only admin can delete attachments.");
       return;
@@ -74,15 +126,33 @@ function Attachments() {
       return;
     }
 
-    const result = deleteProjectAttachment(projectSlug, attachment.id);
+    if (!project?._id) {
+      window.alert("Project not found.");
+      return;
+    }
+
+    const result = await deleteProjectAttachment(project._id, attachment.id);
 
     if (!result?.success) {
       window.alert(result?.error || "Unable to delete attachment.");
       return;
     }
 
-    setFeedback(`Deleted ${attachment.name}. This change is saved on the frontend for now.`);
+    setFeedback(`Deleted ${attachment.name}.`);
   };
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      fetchProjects();
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    return () => window.removeEventListener("focus", handleWindowFocus);
+  }, [fetchProjects]);
 
   if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
     return (
@@ -124,12 +194,40 @@ function Attachments() {
 
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              
+            <div className="rounded-[32px] border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-primary/10 p-2 text-primary">
+                  <FolderPlusIcon size={18} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight">Add Attachments</h2>
+                </div>
+              </div>
 
-              
+              <div className="mt-4 flex flex-col gap-3 lg:flex-row">
+                <input
+                  ref={attachmentInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleAttachmentChange}
+                  className="block w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm text-muted-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddAttachments}
+                  disabled={selectedFiles.length === 0}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <FolderPlusIcon size={16} />
+                  Add Files
+                </button>
+              </div>
 
-              
+              {selectedFiles.length > 0 && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""} ready to add
+                </p>
+              )}
             </div>
 
             <div className="rounded-[32px] border border-border bg-card p-5 shadow-sm">
@@ -160,6 +258,9 @@ function Attachments() {
                             <p className="text-xs text-muted-foreground">
                               {attachment.sizeLabel || "Size not available"}
                             </p>
+                            <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                              Project attachment
+                            </p>
                           </div>
                         </div>
 
@@ -176,17 +277,15 @@ function Attachments() {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        {attachment.url ? (
-                          <a
-                            href={attachment.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
-                          >
-                            <FolderOpenIcon size={16} />
-                            Open
-                          </a>
-                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => openAttachment(attachment)}
+                          disabled={!attachment.url}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:text-muted-foreground"
+                        >
+                          <FolderOpenIcon size={16} />
+                          Open
+                        </button>
 
                         <button
                           type="button"
@@ -205,47 +304,19 @@ function Attachments() {
                 <div className="mt-5 rounded-3xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center">
                   <p className="text-sm font-semibold">No project attachments yet</p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Files added while creating the project will appear here.
+                    Files added during project creation or from this page will appear here.
                   </p>
                 </div>
               )}
             </div>
           </div>
-
-          <aside className="space-y-4">
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-primary/10 p-2 text-primary">
-                  <ShieldCheckIcon size={18} />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Permissions</h3>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Admin</span>
-                  <span className="font-semibold">{project.admin || project.owner}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Your access</span>
-                  <span className="font-semibold">{canDeleteAttachments ? "Can delete" : "View only"}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Project code</span>
-                  <span className="font-semibold">{project.joinCode}</span>
-                </div>
-              </div>
-            </div>
-
-            {feedback && (
-              <p className="rounded-2xl bg-card px-4 py-3 text-xs font-medium text-muted-foreground shadow-sm">
-                {feedback}
-              </p>
-            )}
-          </aside>
         </section>
+
+        {feedback && (
+          <p className="rounded-2xl bg-card px-4 py-3 text-xs font-medium text-muted-foreground shadow-sm">
+            {feedback}
+          </p>
+        )}
       </div>
     </DashboardLayout>
   );

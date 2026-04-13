@@ -10,10 +10,13 @@ import {
   seedProjects,
 } from "./projectData";
 import {
+  addProjectAttachments as addProjectAttachmentsApi,
   createProject as createProjectApi,
+  deleteProjectAttachment as deleteProjectAttachmentApi,
   deleteProject as deleteProjectApi,
   getProjects as getProjectsApi,
   joinProject as joinProjectApi,
+  removeProjectMember as removeProjectMemberApi,
 } from "../../utils/projectApi";
 import { useAppSelector } from "../../store/hooks";
 
@@ -384,12 +387,15 @@ const mergeProjectsWithStoredState = (incomingProjects, currentUser = null) => {
         Object.keys(storedProject.memberDirectory || {}).length > 0
           ? storedProject.memberDirectory
           : normalizedProject.memberDirectory,
-      attachments: storedProject.attachments ?? normalizedProject.attachments,
+      attachments: normalizedProject.attachments ?? storedProject.attachments,
       attachmentItems:
-        Array.isArray(storedProject.attachmentItems) && storedProject.attachmentItems.length > 0
-          ? storedProject.attachmentItems
-          : normalizedProject.attachmentItems,
-      attachmentFiles: storedProject.attachmentFiles || normalizedProject.attachmentFiles,
+        Array.isArray(normalizedProject.attachmentItems)
+          ? normalizedProject.attachmentItems
+          : storedProject.attachmentItems,
+      attachmentFiles:
+        Array.isArray(normalizedProject.attachmentFiles) && normalizedProject.attachmentFiles.length > 0
+          ? normalizedProject.attachmentFiles
+          : storedProject.attachmentFiles,
       board: cloneProjectBoard(storedProject.board || normalizedProject.board),
     };
   });
@@ -405,6 +411,17 @@ const INVALID_PROJECT_CODE_PATTERNS = [
   "user belonging to this token does no longer exist",
   "token does no longer exist",
 ];
+
+const mergeProjectIntoState = (currentProjects, nextProject) =>
+  currentProjects.map((project) =>
+    project._id === nextProject._id || project.id === nextProject.id
+      ? {
+          ...project,
+          ...nextProject,
+          board: cloneProjectBoard(project.board || nextProject.board),
+        }
+      : project
+  );
 
 
 
@@ -432,6 +449,8 @@ const ProjectsContext = createContext({
   getProjectBySlug: () => null,
   joinProjectByCode: () => ({ success: false }),
   addProjectMember: () => ({ success: false }),
+  removeProjectMember: () => ({ success: false }),
+  addProjectAttachments: () => ({ success: false }),
   updateProjectBoard: () => {},
   updateProjectTask: () => {},
   deleteProjectTask: () => ({ success: false }),
@@ -610,6 +629,78 @@ export function ProjectsProvider({ children }) {
 
     return result;
   }, []);
+
+  const removeProjectMember = useCallback(async (projectId, memberId) => {
+    try {
+      const response = await removeProjectMemberApi(projectId, memberId);
+      const backendProject =
+        response?.data?.data?.project ||
+        response?.data?.project ||
+        response?.data;
+      const updatedProject = normalizeProject(backendProject, currentUser);
+
+      setProjects((currentProjects) => mergeProjectIntoState(currentProjects, updatedProject));
+
+      return { success: true, project: updatedProject };
+    } catch (error) {
+      console.error("Error removing project member", error);
+      return {
+        success: false,
+        error: error.message || "Unable to remove project member.",
+      };
+    }
+  }, [currentUser]);
+
+  const addProjectAttachments = useCallback(async (projectId, files = []) => {
+    const normalizedFiles = Array.from(files).filter(Boolean);
+
+    if (normalizedFiles.length === 0) {
+      return { success: false, error: "Select at least one attachment first." };
+    }
+
+    try {
+      const attachments = await Promise.all(
+        normalizedFiles.map(
+          (file) =>
+            new Promise((resolve, reject) => {
+              const reader = new FileReader();
+
+              reader.onload = () => {
+                const result = String(reader.result || "");
+                const [, base64Content = ""] = result.split(",");
+
+                resolve({
+                  fileName: file.name,
+                  content: base64Content,
+                  mimeType: file.type || "application/octet-stream",
+                  size: file.size,
+                });
+              };
+
+              reader.onerror = () => reject(new Error(`Unable to read ${file.name}.`));
+              reader.readAsDataURL(file);
+            })
+        )
+      );
+
+      const response = await addProjectAttachmentsApi(projectId, attachments);
+      const backendProject =
+        response?.data?.data?.project ||
+        response?.data?.project ||
+        response?.data;
+      const updatedProject = normalizeProject(backendProject, currentUser);
+
+      setProjects((currentProjects) => mergeProjectIntoState(currentProjects, updatedProject));
+
+      return { success: true, project: updatedProject, attachments };
+    } catch (error) {
+      console.error("Error adding project attachments", error);
+      return {
+        success: false,
+        error: error.message || "Unable to add project attachments.",
+      };
+    }
+  }, [currentUser]);
 
   const joinProjectByCode = useCallback((code) => {
     const normalizedCode = code.trim().toUpperCase();
@@ -832,36 +923,26 @@ export function ProjectsProvider({ children }) {
     return result;
   }, []);
 
-  const deleteProjectAttachment = useCallback((projectSlug, attachmentId) => {
-    let result = { success: false, error: "Project not found." };
+  const deleteProjectAttachment = useCallback(async (projectId, attachmentId) => {
+    try {
+      const response = await deleteProjectAttachmentApi(projectId, attachmentId);
+      const backendProject =
+        response?.data?.data?.project ||
+        response?.data?.project ||
+        response?.data;
+      const updatedProject = normalizeProject(backendProject, currentUser);
 
-    setProjects((currentProjects) =>
-      currentProjects.map((project) => {
-        if (project.slug !== projectSlug) {
-          return project;
-        }
+      setProjects((currentProjects) => mergeProjectIntoState(currentProjects, updatedProject));
 
-        const nextAttachmentItems = (project.attachmentItems || []).filter(
-          (attachment) => attachment.id !== attachmentId
-        );
-
-        if (nextAttachmentItems.length === (project.attachmentItems || []).length) {
-          result = { success: false, error: "Attachment not found." };
-          return project;
-        }
-
-        result = { success: true };
-        return {
-          ...project,
-          attachments: nextAttachmentItems.length,
-          attachmentItems: nextAttachmentItems,
-          attachmentFiles: nextAttachmentItems.map((attachment) => attachment.name),
-        };
-      })
-    );
-
-    return result;
-  }, []);
+      return { success: true, project: updatedProject };
+    } catch (error) {
+      console.error("Error deleting project attachment", error);
+      return {
+        success: false,
+        error: error.message || "Unable to delete project attachment.",
+      };
+    }
+  }, [currentUser]);
 
   const value = useMemo(
     () => ({
@@ -873,6 +954,8 @@ export function ProjectsProvider({ children }) {
       getProjectBySlug: (slug) => projects.find((project) => project.slug === slug),
       joinProjectByCode,
       addProjectMember,
+      removeProjectMember,
+      addProjectAttachments,
       updateProjectBoard,
       updateProjectTask,
       deleteProjectTask,
@@ -886,6 +969,8 @@ export function ProjectsProvider({ children }) {
       joinProjectByCode,
       projects,
       removeProject,
+      removeProjectMember,
+      addProjectAttachments,
       updateProjectBoard,
       updateProjectTask,
       deleteProjectTask,

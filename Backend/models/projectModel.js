@@ -38,6 +38,9 @@ const projectSchema = new mongoose.Schema(
       {
         fileName: String,
         fileUrl: String,
+        filePath: String,
+        mimeType: String,
+        size: Number,
         uploadedBy: {
           type: mongoose.Types.ObjectId,
           ref: "User",
