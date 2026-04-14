@@ -4,6 +4,7 @@ import {
   CopyIcon,
   MailIcon,
   MapPinIcon,
+  Trash2Icon,
   UsersIcon,
   XIcon,
 } from "lucide-react";
@@ -17,12 +18,13 @@ function ProjectTeamMembers() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
   const { profile } = useCurrentUser();
-  const { getProjectBySlug } = useProjects();
+  const { getProjectBySlug, removeProjectMember } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
   const [memberFeedback, setMemberFeedback] = useState("");
   const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const [removingMemberId, setRemovingMemberId] = useState(null);
 
   const memberProfiles = useMemo(() => {
     const uniqueMembers = new Map();
@@ -39,10 +41,12 @@ function ProjectTeamMembers() {
 
       const normalizedMember = {
         id: member.id || getInitials(name),
+        userId: member.userId || null,
         name,
         role: member.role || "Project Member",
         location: member.location || "Location not added",
         email: member.email || "No email available",
+        memberRole: member.memberRole || "member",
         bio:
           member.about ||
           `${name} contributes to ${project?.title} and helps move work across planning, delivery, and review.`,
@@ -77,6 +81,33 @@ function ProjectTeamMembers() {
     [memberProfiles, selectedMemberId]
   );
 
+  const normalizedDisplayName = displayName.trim().toLowerCase();
+  const isCurrentUserProjectAdmin = useMemo(() => {
+    if (!project) {
+      return false;
+    }
+
+    if (profile?._id && project.createdBy?._id === profile._id) {
+      return true;
+    }
+
+    return (project.memberProfiles || []).some((member) => {
+      const matchesByUserId = Boolean(profile?._id && member.userId === profile._id);
+      const matchesByName =
+        Boolean(member.name) && member.name.trim().toLowerCase() === normalizedDisplayName;
+
+      return (matchesByUserId || matchesByName) && member.memberRole === "admin";
+    });
+  }, [normalizedDisplayName, profile?._id, project]);
+
+  const canRemoveSelectedMember = Boolean(
+    isCurrentUserProjectAdmin &&
+      selectedMember?.userId &&
+      selectedMember.memberRole !== "admin" &&
+      selectedMember.userId !== project?.createdBy?._id &&
+      selectedMember.userId !== profile?._id
+  );
+
   const handleCopyCode = async () => {
     if (!project?.joinCode) {
       return;
@@ -88,6 +119,29 @@ function ProjectTeamMembers() {
     } catch {
       setMemberFeedback(`Share this code manually: ${project.joinCode}`);
     }
+  };
+
+  const handleRemoveMember = async () => {
+    if (!project?._id || !selectedMember?.userId || !canRemoveSelectedMember) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Remove ${selectedMember.name} from ${project.title}?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setRemovingMemberId(selectedMember.userId);
+    const result = await removeProjectMember(project._id, selectedMember.userId);
+    setRemovingMemberId(null);
+
+    if (!result.success) {
+      setMemberFeedback(result.error || "Unable to remove project member.");
+      return;
+    }
+
+    setSelectedMemberId(null);
+    setMemberFeedback(`${selectedMember.name} was removed from the project team.`);
   };
 
   if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
@@ -180,13 +234,26 @@ function ProjectTeamMembers() {
                       <p className="text-sm text-muted-foreground">{selectedMember.role}</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMemberId(null)}
-                    className="rounded-full p-2 text-muted-foreground transition hover:bg-background hover:text-foreground"
-                  >
-                    <XIcon size={18} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {canRemoveSelectedMember && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveMember}
+                        disabled={removingMemberId === selectedMember.userId}
+                        className="rounded-full p-2 text-muted-foreground transition hover:bg-background hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        aria-label={`Remove ${selectedMember.name} from the project`}
+                      >
+                        <Trash2Icon size={18} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMemberId(null)}
+                      className="rounded-full p-2 text-muted-foreground transition hover:bg-background hover:text-foreground"
+                    >
+                      <XIcon size={18} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-1">

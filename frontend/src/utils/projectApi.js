@@ -62,6 +62,30 @@ export const joinProject = async (projectCode) => {
   }
 };
 
+export const removeProjectMember = async (projectId, memberId) => {
+  try {
+    return await API.delete(`/projects/${projectId}/members/${memberId}`, { auth: true });
+  } catch (error) {
+    throw normalizeApiError(error, "Unable to remove project member.");
+  }
+};
+
+export const addProjectAttachments = async (projectId, attachments) => {
+  try {
+    return await API.post(`/projects/${projectId}/attachments`, { attachments }, { auth: true });
+  } catch (error) {
+    throw normalizeApiError(error, "Unable to add project attachments.");
+  }
+};
+
+export const deleteProjectAttachment = async (projectId, attachmentId) => {
+  try {
+    return await API.delete(`/projects/${projectId}/attachments/${attachmentId}`, { auth: true });
+  } catch (error) {
+    throw normalizeApiError(error, "Unable to delete project attachment.");
+  }
+};
+
 export const regenerateProjectCode = async (projectId) => {
   try {
     return await API.patch(`/projects/${projectId}/regenerate-code`, {}, { auth: true });
