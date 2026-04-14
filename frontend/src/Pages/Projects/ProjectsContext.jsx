@@ -39,7 +39,7 @@ const readStoredProjects = () => {
 const buildProjectKey = (project) =>
   String(project?._id || project?.id || project?.projectCode || project?.joinCode || project?.slug || "");
 
-// const normalizeComparableValue = (value = "") => String(value).trim().toLowerCase();
+const normalizeComparableValue = (value = "") => String(value).trim().toLowerCase();
 
 const normalizeAttachmentEntry = (attachment, index = 0) => {
   if (typeof attachment === "string") {

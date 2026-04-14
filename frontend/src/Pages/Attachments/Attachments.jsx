@@ -21,12 +21,33 @@ const isProjectAdmin = (project, profile, displayName) => {
     return false;
   }
 
-  const profileId = profile?._id;
+  const profileId = profile?._id || profile?.id;
   const projectOwnerId =
-    typeof project.createdBy === "object" ? project.createdBy?._id : project.createdBy;
+    typeof project.createdBy === "object"
+      ? project.createdBy?._id || project.createdBy?.id
+      : project.createdBy;
+  const projectAdminId =
+    typeof project.admin === "object" ? project.admin?._id || project.admin?.id : null;
+  const profileEmail = profile?.email || "";
+  const isAdminMember = (project.memberProfiles || []).some((memberProfile) => {
+    const memberId = memberProfile?.userId || memberProfile?._id || memberProfile?.id;
+
+    return (
+      memberProfile?.memberRole === "admin" &&
+      ((profileId && memberId && profileId === memberId) ||
+        (profileEmail &&
+          memberProfile?.email &&
+          normalizeComparableValue(profileEmail) === normalizeComparableValue(memberProfile.email)) ||
+        (displayName &&
+          memberProfile?.name &&
+          normalizeComparableValue(displayName) === normalizeComparableValue(memberProfile.name)))
+    );
+  });
 
   return (
     Boolean(profileId && projectOwnerId && profileId === projectOwnerId) ||
+    Boolean(profileId && projectAdminId && profileId === projectAdminId) ||
+    isAdminMember ||
     normalizeComparableValue(displayName) === normalizeComparableValue(project.admin || "") ||
     normalizeComparableValue(displayName) === normalizeComparableValue(project.owner || "")
   );
@@ -138,6 +159,7 @@ function Attachments() {
       return;
     }
 
+    await fetchProjects();
     setFeedback(`Deleted ${attachment.name}.`);
   };
 
