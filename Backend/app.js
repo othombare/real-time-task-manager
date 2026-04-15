@@ -8,6 +8,7 @@ const morgan= require('morgan');
 
 const userRouter= require(`./routes/userRoutes`)
 const projectRouter = require('./routes/projectRoutes');
+const taskRouter = require('./routes/taskRoutes');
 const globalErrorHandler = require('./controllers/errorController');
 
 //1. MIDDLEWARE
@@ -50,6 +51,7 @@ app.use((req, res, next)=>{
 
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/projects', projectRouter);
+app.use('/api/v1/tasks', taskRouter);
 
 // For handling errors globally
 app.use(globalErrorHandler);

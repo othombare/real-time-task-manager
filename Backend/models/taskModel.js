@@ -74,7 +74,7 @@ const taskSchema = new mongoose.Schema(
 taskSchema.index({ project: 1, assignedTo: 1 });
 
 // Pre-save middleware to auto-adjust priority based on dueDate
-taskSchema.pre("save", function (next) {
+taskSchema.pre("save", function () {
   if (this.dueDate) {
     const now = new Date();
     const timeDifference = this.dueDate - now;
@@ -88,7 +88,6 @@ taskSchema.pre("save", function (next) {
       this.priority = "low";
     }
   }
-  next();
 });
 
 module.exports = mongoose.model("Task", taskSchema);
