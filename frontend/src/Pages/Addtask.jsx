@@ -23,6 +23,8 @@ function Addtask({
   showProjectField = false,
   projectOptions = [],
   assigneeOptions = [],
+  hideAssigneeField = false,
+  defaultAssignee = "",
   initialStatus = "To Do",
 }) {
   const [form, setForm] = useState(initialFormState);
@@ -40,8 +42,9 @@ function Addtask({
     setForm((current) => ({
       ...current,
       status: statuses.includes(initialStatus) ? initialStatus : statuses[0] || "To Do",
+      assignee: defaultAssignee || current.assignee,
     }));
-  }, [initialStatus, isOpen, statuses]);
+  }, [defaultAssignee, initialStatus, isOpen, statuses]);
 
   if (!isOpen) {
     return null;
@@ -72,6 +75,7 @@ function Addtask({
   const handleClose = () => {
     setForm({
       ...initialFormState,
+      assignee: defaultAssignee,
       status: statuses[0] || "To Do",
     });
     setSelectedFiles([]);
@@ -85,7 +89,7 @@ function Addtask({
     event.preventDefault();
 
     const trimmedTitle = form.title.trim();
-    const trimmedAssignee = form.assignee.trim();
+    const trimmedAssignee = (defaultAssignee || form.assignee).trim();
 
     if (!trimmedTitle || !trimmedAssignee || !form.dueDate) {
       return;
@@ -115,6 +119,7 @@ function Addtask({
 
     setForm({
       ...initialFormState,
+      assignee: defaultAssignee,
       status: statuses[0] || "To Do",
     });
     setSelectedFiles([]);
@@ -227,29 +232,31 @@ function Addtask({
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold" htmlFor="task-assignee">
-                Assignee
-              </label>
-              <select
-                id="task-assignee"
-                name="assignee"
-                value={form.assignee}
-                onChange={handleChange}
-                className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                required
-              >
-                <option value="" disabled>
-                  Select team member
-                </option>
-                {assigneeOptions.map((assignee) => (
-                  <option key={assignee.value} value={assignee.value}>
-                    {assignee.label}
+          <div className={`grid gap-4 ${hideAssigneeField ? "" : "md:grid-cols-2"}`}>
+            {!hideAssigneeField && (
+              <div className="space-y-2">
+                <label className="text-sm font-semibold" htmlFor="task-assignee">
+                  Assignee
+                </label>
+                <select
+                  id="task-assignee"
+                  name="assignee"
+                  value={form.assignee}
+                  onChange={handleChange}
+                  className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  required
+                >
+                  <option value="" disabled>
+                    Select team member
                   </option>
-                ))}
-              </select>
-            </div>
+                  {assigneeOptions.map((assignee) => (
+                    <option key={assignee.value} value={assignee.value}>
+                      {assignee.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-semibold" htmlFor="task-due-date">

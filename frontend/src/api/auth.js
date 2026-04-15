@@ -116,14 +116,24 @@ export const registerUser = async ({
 export const getMyProfile = async () => {
   try {
     const response = await API.get("/users/me", { auth: true });
-    console.log("getMyProfile response:", response);
     if (response.data.data?.user) {
       setStoredProfile(response.data.data.user);
     }
     return response.data;
   } catch (error) {
-    console.error("getMyProfile error:", error);
     throw normalizeApiError(error, "Unable to load your profile.");
+  }
+};
+
+export const updateMyProfile = async (profileUpdates) => {
+  try {
+    const response = await API.patch("/users/me", profileUpdates, { auth: true });
+    if (response.data.data?.user) {
+      setStoredProfile(response.data.data.user);
+    }
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error, "Unable to update your profile.");
   }
 };
 

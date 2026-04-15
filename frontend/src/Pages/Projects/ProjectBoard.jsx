@@ -1,15 +1,16 @@
 import { useMemo, useState } from "react";
 import {
   ArrowLeftIcon,
-  BriefcaseBusinessIcon,
   CheckIcon,
   CheckCircle2Icon,
-  CopyIcon,
-  KeyRoundIcon,
   LayersIcon,
   PlusIcon,
   UsersIcon,
+  BriefcaseBusinessIcon,
+  PinIcon,
+  PaperclipIcon,
 } from "lucide-react";
+import { DragDropContext } from "react-beautiful-dnd";
 import { useNavigate, useParams } from "react-router-dom";
 import Addtask from "../Addtask";
 import DashboardLayout from "../Dashboard/DashboardLayout";
@@ -22,14 +23,19 @@ function ProjectBoard() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
   const { profile } = useCurrentUser();
-  const { getProjectBySlug, updateProjectBoard, updateProjectTask, addProjectMember } = useProjects();
+  const { getProjectBySlug, updateProjectBoard, updateProjectTask, deleteProjectTask } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
+  const currentActor = useMemo(
+    () => ({
+      userId: profile?._id || null,
+      name: displayName,
+    }),
+    [displayName, profile?._id]
+  );
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("To Do");
-  const [newMemberName, setNewMemberName] = useState("");
-  const [memberFeedback, setMemberFeedback] = useState("");
   const boardColumns = useMemo(
     () => (project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)),
     [project]
@@ -42,6 +48,58 @@ function ProjectBoard() {
       })),
     [project]
   );
+  const handleDragEnd = ({ source, destination }) => {
+    if (!destination) {
+      return;
+    }
+
+    const isSamePosition =
+      source.droppableId === destination.droppableId && source.index === destination.index;
+
+    if (isSamePosition) {
+      return;
+    }
+
+    const updateResult = updateProjectBoard(projectSlug, (currentColumns, helpers = {}) => {
+      const nextColumns = currentColumns.map((column) => ({
+        ...column,
+        tasks: [...column.tasks],
+      }));
+
+      const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
+      const destinationColumnIndex = nextColumns.findIndex(
+        (column) => column.title === destination.droppableId
+      );
+
+      if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
+        return currentColumns;
+      }
+
+      const sourceColumn = nextColumns[sourceColumnIndex];
+      const destinationColumn = nextColumns[destinationColumnIndex];
+      const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
+
+      if (!movedTask) {
+        return currentColumns;
+      }
+
+      if (!helpers.canManageTask?.(movedTask)) {
+        return null;
+      }
+
+      destinationColumn.tasks.splice(destination.index, 0, {
+        ...movedTask,
+        status: destinationColumn.title,
+      });
+
+      return nextColumns;
+    }, currentActor);
+
+    if (!updateResult?.success && updateResult?.error) {
+      window.alert(updateResult.error);
+    }
+  };
+
 
   const boardStats = useMemo(() => {
     const allTasks = boardColumns.flatMap((column) => column.tasks);
@@ -64,7 +122,9 @@ function ProjectBoard() {
                 {
                   id: Date.now(),
                   ...newTask,
+                  status: newTask.status,
                   createdBy: newTask.createdBy || profile?.name || "Workspace",
+                  createdByUserId: newTask.createdByUserId || profile?._id || null,
                 },
                 ...column.tasks,
               ],
@@ -80,28 +140,16 @@ function ProjectBoard() {
   };
 
   const handleUpdateTask = (taskId, updates) => {
-    updateProjectTask(projectSlug, taskId, updates);
-  };
-
-  const handleAddMember = () => {
-    const result = addProjectMember(projectSlug, newMemberName);
-    setMemberFeedback(result.success ? `${result.memberName} was added to the project team.` : result.error);
-
-    if (result.success) {
-      setNewMemberName("");
+    const result = updateProjectTask(projectSlug, taskId, updates, currentActor);
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
     }
   };
 
-  const handleCopyCode = async () => {
-    if (!project?.joinCode) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(project.joinCode);
-      setMemberFeedback(`Copied ${project.joinCode} to the clipboard.`);
-    } catch {
-      setMemberFeedback(`Share this code manually: ${project.joinCode}`);
+  const handleDeleteTask = (taskId) => {
+    const result = deleteProjectTask(projectSlug, taskId, currentActor);
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
     }
   };
 
@@ -144,6 +192,26 @@ function ProjectBoard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+
+
+          <button
+              type="button"
+              onClick={() => navigate(`/projects/${project.slug}/attachments`)}
+              className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
+            >
+              <PaperclipIcon size={16} />
+              View Attachments
+            </button>
+
+
+            <button
+              type="button"
+              onClick={() => navigate(`/projects/${project.slug}/team-members`)}
+              className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
+            >
+              <UsersIcon size={16} />
+              View Team Members
+            </button>
             <button
               type="button"
               onClick={() => openAddTaskModal()}
@@ -155,7 +223,7 @@ function ProjectBoard() {
           </div>
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
+        <section className="space-y-6">
           <div className="min-w-0 space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
@@ -211,129 +279,28 @@ function ProjectBoard() {
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Project Board</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Organize work the way teams usually do in Jira: backlog into progress into delivery.
-                  </p>
+                  
                 </div>
               </div>
 
-              <div className="flex gap-8 overflow-x-auto pb-4 custom-scrollbar pr-2">
-                {boardColumns.map((column) => (
-                  <KanbanColumn
-                    key={column.title}
-                    {...column}
-                    onAddTask={openAddTaskModal}
-                    onUpdateTask={handleUpdateTask}
-                  />
-                ))}
-              </div>
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <div className="grid gap-5 xl:grid-cols-4">
+                  {boardColumns.map((column) => (
+                    <KanbanColumn
+                      key={column.title}
+                      {...column}
+                      droppableId={column.title}
+                      onAddTask={openAddTaskModal}
+                      onUpdateTask={handleUpdateTask}
+                      onDeleteTask={handleDeleteTask}
+                      currentUserName={displayName}
+                      currentUserId={profile?._id || null}
+                    />
+                  ))}
+                </div>
+              </DragDropContext>
             </div>
           </div>
-
-          <aside className="min-w-0 space-y-4 xl:w-[360px] 2xl:w-[400px]">
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-primary/10 p-2 text-primary">
-                  <UsersIcon size={18} />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Project Team</h3>
-                  <p className="text-xs text-muted-foreground">Admin, members, and invite access.</p>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Admin</span>
-                  <span className="font-semibold">{project.admin || project.owner}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Members</span>
-                  <span className="font-semibold">{project.members.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Group code</span>
-                  <span className="font-semibold">{project.joinCode}</span>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                {project.members.map((member) => (
-                  <div key={member} className="flex items-center gap-3 rounded-2xl bg-muted/50 px-3 py-2">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-card bg-primary text-xs font-bold text-primary-foreground">
-                      {member}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold">{resolveMemberLabel(member, project.memberDirectory)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {member === currentMemberId ? "You" : "Project member"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-5 space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
-                <div className="flex items-center gap-2">
-                  <UsersIcon size={16} className="text-primary" />
-                  <h4 className="text-sm font-semibold">Add member</h4>
-                </div>
-                <input
-                  type="text"
-                  value={newMemberName}
-                  onChange={(event) => {
-                    setNewMemberName(event.target.value);
-                    setMemberFeedback("");
-                  }}
-                  placeholder="Enter teammate name"
-                  className="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddMember}
-                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-                >
-                  <CheckIcon size={14} />
-                  Add to team
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
-                <div className="flex items-center gap-2">
-                  <KeyRoundIcon size={16} className="text-primary" />
-                  <h4 className="text-sm font-semibold">Invite by code</h4>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl bg-background px-4 py-3 text-sm font-semibold">
-                  <span>{project.joinCode}</span>
-                  <button
-                    type="button"
-                    onClick={handleCopyCode}
-                    className="inline-flex items-center gap-2 text-xs font-semibold text-primary transition hover:text-primary/80"
-                  >
-                    <CopyIcon size={14} />
-                    Copy
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Teammates can join from the Projects page by entering this group code.
-                </p>
-              </div>
-
-              {memberFeedback && (
-                <p className="mt-4 rounded-2xl bg-muted px-3 py-2 text-xs font-medium text-muted-foreground">
-                  {memberFeedback}
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-              <h3 className="font-semibold">Project Access</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                The creator is treated as the project admin, and task comments or attachments can be updated from the
-                task drawer by any project member on the frontend.
-              </p>
-            </div>
-          </aside>
         </section>
       </div>
 

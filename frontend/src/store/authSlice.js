@@ -8,11 +8,13 @@ import {
   logoutUser as logoutRequest,
   registerUser as registerRequest,
   resetPassword as resetPasswordRequest,
+  updateMyProfile as updateMyProfileRequest,
   updateStoredProfile,
 } from "../api/auth";
 
 const getInitialUser = () => getStoredProfile();
 const getInitialToken = () => getAuthToken();
+const getUserFromApiPayload = (payload) => payload?.data?.user ?? payload?.user ?? null;
 
 export const initializeAuth = createAsyncThunk(
   "auth/initializeAuth",
@@ -29,7 +31,7 @@ export const initializeAuth = createAsyncThunk(
 
       return {
         token: getAuthToken(),
-        user: response.data?.user ?? null,
+        user: getUserFromApiPayload(response),
       };
     } catch (error) {
       return rejectWithValue(
@@ -47,7 +49,7 @@ export const login = createAsyncThunk(
 
       return {
         token: response.token ?? null,
-        user: response.data?.user ?? null,
+        user: getUserFromApiPayload(response),
       };
     } catch (error) {
       return rejectWithValue(error.message || "Login failed.");
@@ -63,7 +65,7 @@ export const register = createAsyncThunk(
 
       return {
         token: response.token ?? null,
-        user: response.data?.user ?? null,
+        user: getUserFromApiPayload(response),
       };
     } catch (error) {
       return rejectWithValue(error.message || "Registration failed.");
@@ -79,7 +81,7 @@ export const resetPasswordSession = createAsyncThunk(
 
       return {
         token: response.token ?? null,
-        user: response.data?.user ?? null,
+        user: getUserFromApiPayload(response),
       };
     } catch (error) {
       return rejectWithValue(error.message || "Unable to reset password.");
@@ -92,12 +94,28 @@ export const logout = createAsyncThunk("auth/logout", async () => {
   return null;
 });
 
+export const saveProfile = createAsyncThunk(
+  "auth/saveProfile",
+  async (profileUpdates, { rejectWithValue }) => {
+    try {
+      const response = await updateMyProfileRequest(profileUpdates);
+
+      return {
+        user: getUserFromApiPayload(response),
+      };
+    } catch (error) {
+      return rejectWithValue(error.message || "Unable to save profile.");
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: "auth",
   initialState: {
     user: getInitialUser(),
     token: getInitialToken(),
     loading: isAuthenticated() && !getInitialUser(),
+    profileSaving: false,
     initialized: !isAuthenticated() || Boolean(getInitialUser()),
     error: null,
   },
@@ -118,6 +136,7 @@ const authSlice = createSlice({
       })
       .addCase(initializeAuth.fulfilled, (state, action) => {
         state.loading = false;
+        state.profileSaving = false;
         state.initialized = true;
         state.token = action.payload.token;
         state.user = action.payload.user;
@@ -125,9 +144,10 @@ const authSlice = createSlice({
       })
       .addCase(initializeAuth.rejected, (state, action) => {
         state.loading = false;
+        state.profileSaving = false;
         state.initialized = true;
         state.token = getAuthToken();
-        state.user = null;
+        state.user = getStoredProfile();
         state.error = action.payload ?? action.error.message ?? null;
       })
       .addCase(login.pending, (state) => {
@@ -136,6 +156,7 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
+        state.profileSaving = false;
         state.initialized = true;
         state.token = action.payload.token;
         state.user = action.payload.user;
@@ -143,6 +164,7 @@ const authSlice = createSlice({
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
+        state.profileSaving = false;
         state.error = action.payload ?? action.error.message ?? null;
       })
       .addCase(register.pending, (state) => {
@@ -151,6 +173,7 @@ const authSlice = createSlice({
       })
       .addCase(register.fulfilled, (state, action) => {
         state.loading = false;
+        state.profileSaving = false;
         state.initialized = true;
         state.token = action.payload.token;
         state.user = action.payload.user;
@@ -158,6 +181,7 @@ const authSlice = createSlice({
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
+        state.profileSaving = false;
         state.error = action.payload ?? action.error.message ?? null;
       })
       .addCase(resetPasswordSession.pending, (state) => {
@@ -166,6 +190,7 @@ const authSlice = createSlice({
       })
       .addCase(resetPasswordSession.fulfilled, (state, action) => {
         state.loading = false;
+        state.profileSaving = false;
         state.initialized = true;
         state.token = action.payload.token;
         state.user = action.payload.user;
@@ -173,14 +198,32 @@ const authSlice = createSlice({
       })
       .addCase(resetPasswordSession.rejected, (state, action) => {
         state.loading = false;
+        state.profileSaving = false;
         state.error = action.payload ?? action.error.message ?? null;
       })
       .addCase(logout.fulfilled, (state) => {
         state.loading = false;
+        state.profileSaving = false;
         state.initialized = true;
         state.token = null;
         state.user = null;
         state.error = null;
+      })
+      .addCase(saveProfile.pending, (state) => {
+        state.profileSaving = true;
+        state.error = null;
+      })
+      .addCase(saveProfile.fulfilled, (state, action) => {
+        state.profileSaving = false;
+        state.user = action.payload.user ?? state.user;
+        if (state.user) {
+          updateStoredProfile(state.user);
+        }
+        state.error = null;
+      })
+      .addCase(saveProfile.rejected, (state, action) => {
+        state.profileSaving = false;
+        state.error = action.payload ?? action.error.message ?? null;
       });
   },
 });

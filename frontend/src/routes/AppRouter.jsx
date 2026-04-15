@@ -7,6 +7,7 @@ import ResetPassword from "../Pages/Auth/ResetPassword";
 
 import Projects from "../Pages/Projects/Projects";
 import ProjectBoard from "../Pages/Projects/ProjectBoard";
+import ProjectTeamMembers from "../Pages/Projects/ProjectTeamMembers";
 import PerToDo from "../Pages/PerToDo";
 import TeamMembers from "../Pages/TeamMembers/TeamMembers";
 import Analytics from "../Pages/Analytics/Analytics";
@@ -16,10 +17,16 @@ import Notifications from "../Pages/Notifications/Notifications";
 import MyProfile from "../Pages/MyProfile/MyProfile";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
+import Attachments from "../Pages/Attachments/Attachments";
 
 const AppRouter = () => {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <Routes>
         {/* Public auth screens */}
         <Route
@@ -86,6 +93,22 @@ const AppRouter = () => {
           element={
             <ProtectedRoute>
               <ProjectBoard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectSlug/attachments"
+          element={
+            <ProtectedRoute>
+              <Attachments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects/:projectSlug/team-members"
+          element={
+            <ProtectedRoute>
+              <ProjectTeamMembers />
             </ProtectedRoute>
           }
         />

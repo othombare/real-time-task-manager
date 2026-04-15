@@ -36,11 +36,11 @@ export function Header() {
       navigate("/login", { replace: true });
     };
 
-  const handleCreateProject = (projectData) => {
+  const handleCreateProject = async (projectData) => {
     const creatorId = getInitials(displayName) || initials;
     const selectedMembers = Array.from(new Set([creatorId, ...(projectData.members || [])]));
 
-    const newProject = createProject({
+    const newProject = await createProject({
       ...projectData,
       owner: displayName,
       admin: displayName,
@@ -54,7 +54,10 @@ export function Header() {
         {}
       ),
     });
-    navigate(`/projects/${newProject.slug}`);
+
+    if (newProject?.slug) {
+      navigate(`/projects/${newProject.slug}`);
+    }
   };
 
   return (

@@ -1,9 +1,21 @@
 import { motion, AnimatePresence } from "framer-motion"
 import { MoreHorizontalIcon, PlusIcon } from "lucide-react"
+import { Draggable } from "react-beautiful-dnd"
 import { TaskCard } from "./TaskCard"
+import { StrictModeDroppable } from "./StrictModeDroppable"
 import { cn } from "../../lib/utils"
 
-export function KanbanColumn({ title, tasks, color, onAddTask, onUpdateTask }) {
+export function KanbanColumn({
+  title,
+  tasks,
+  color,
+  droppableId,
+  onAddTask,
+  onUpdateTask,
+  onDeleteTask,
+  currentUserName,
+  currentUserId,
+}) {
   return (
     <div className="flex flex-col gap-4 kanban-column flex-1 min-w-[300px]">
       <div className="flex items-center justify-between px-1">
@@ -29,23 +41,56 @@ export function KanbanColumn({ title, tasks, color, onAddTask, onUpdateTask }) {
           </button>
         </div>
       </div>
-      
-      <motion.div 
-        layout
-        className="flex flex-col gap-3.5 min-h-[500px]"
-      >
-        <AnimatePresence mode="popLayout">
-          {tasks.map((task) => (
-            <TaskCard key={task.id} {...task} onUpdateTask={onUpdateTask} />
-          ))}
-        </AnimatePresence>
-        
-        {tasks.length === 0 && (
-          <div className="h-24 border-2 border-dashed border-border/60 rounded-xl flex items-center justify-center text-xs text-muted-foreground italic bg-muted/20">
-            No tasks in this column
-          </div>
+
+      <StrictModeDroppable droppableId={droppableId}>
+        {(provided, snapshot) => (
+          <motion.div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            layout
+            className={cn(
+              "flex min-h-[500px] flex-col gap-3.5 rounded-2xl transition-colors",
+              snapshot.isDraggingOver && "bg-primary/5"
+            )}
+          >
+            <AnimatePresence mode="popLayout">
+              {tasks.map((task, index) => (
+                <Draggable key={task.id} draggableId={String(task.id)} index={index}>
+                  {(dragProvided, dragSnapshot) => (
+                    <div
+                      ref={dragProvided.innerRef}
+                      {...dragProvided.draggableProps}
+                      {...dragProvided.dragHandleProps}
+                      className={cn(
+                        "rounded-xl",
+                        dragSnapshot.isDragging && "rotate-1 shadow-lg"
+                      )}
+                    >
+                      <TaskCard
+                        {...task}
+                        status={task.status || title}
+                        statusOptions={["To Do", "In Progress", "In Review", "Done"]}
+                        onUpdateTask={onUpdateTask}
+                        onDeleteTask={onDeleteTask}
+                        currentUserName={currentUserName}
+                        currentUserId={currentUserId}
+                      />
+                    </div>
+                  )}
+                </Draggable>
+              ))}
+            </AnimatePresence>
+
+            {provided.placeholder}
+
+            {tasks.length === 0 && (
+              <div className="flex h-24 items-center justify-center rounded-xl border-2 border-dashed border-border/60 bg-muted/20 text-xs italic text-muted-foreground">
+                No tasks in this column
+              </div>
+            )}
+          </motion.div>
         )}
-      </motion.div>
+      </StrictModeDroppable>
     </div>
   )
 }
