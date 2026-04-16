@@ -37,6 +37,22 @@ const createError = (message, status, data) => {
   return error;
 };
 
+const extractTextErrorMessage = (value) => {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const preTagMatch = value.match(/<pre>(.*?)<\/pre>/is);
+  const extractedMessage = preTagMatch?.[1] || value;
+  const normalizedMessage = extractedMessage.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+  if (/Cannot (GET|POST|PATCH|DELETE) \/api\/v1\/tasks/i.test(normalizedMessage)) {
+    return "Task API route is unavailable. Restart the backend server and try again.";
+  }
+
+  return normalizedMessage;
+};
+
 // ================= CORE REQUEST FUNCTION =================
 
 async function request(path, options = {}) {
@@ -83,7 +99,7 @@ async function request(path, options = {}) {
   if (!response.ok) {
     const message =
       (typeof data === "object" && (data?.message || data?.error)) ||
-      (typeof data === "string" && data) ||
+      extractTextErrorMessage(data) ||
       `Request failed with status ${response.status}`;
 
     throw createError(message, response.status, data);

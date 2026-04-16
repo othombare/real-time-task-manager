@@ -1,7 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftIcon,
-  CheckIcon,
   CheckCircle2Icon,
   LayersIcon,
   PlusIcon,
@@ -23,7 +22,15 @@ function ProjectBoard() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
   const { profile } = useCurrentUser();
-  const { getProjectBySlug, updateProjectBoard, updateProjectTask, deleteProjectTask } = useProjects();
+  const {
+    addProjectTaskAttachments,
+    addProjectTaskComment,
+    createProjectTask,
+    getProjectBySlug,
+    updateProjectBoard,
+    updateProjectTask,
+    deleteProjectTask,
+  } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
@@ -36,19 +43,53 @@ function ProjectBoard() {
   );
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("To Do");
-  const boardColumns = useMemo(
-    () => (project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)),
-    [project]
+  const [boardColumns, setBoardColumns] = useState(() =>
+    project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)
   );
+
+  useEffect(() => {
+    setBoardColumns(project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate));
+  }, [project]);
+
   const assigneeOptions = useMemo(
     () =>
-      (project?.members ?? []).map((member) => ({
-        value: member,
-        label: resolveMemberLabel(member, project?.memberDirectory),
-      })),
+      (project?.memberProfiles ?? [])
+        .filter((memberProfile) => Boolean(memberProfile?.userId))
+        .map((memberProfile) => ({
+          value: memberProfile.userId,
+          label: memberProfile.name || resolveMemberLabel(memberProfile.id, project?.memberDirectory),
+        })),
     [project]
   );
-  const handleDragEnd = ({ source, destination }) => {
+
+  const applyBoardMove = (currentColumns, source, destination) => {
+    const nextColumns = cloneProjectBoard(currentColumns, projectBoardTemplate);
+    const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
+    const destinationColumnIndex = nextColumns.findIndex(
+      (column) => column.title === destination.droppableId
+    );
+
+    if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
+      return currentColumns;
+    }
+
+    const sourceColumn = nextColumns[sourceColumnIndex];
+    const destinationColumn = nextColumns[destinationColumnIndex];
+    const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
+
+    if (!movedTask) {
+      return currentColumns;
+    }
+
+    destinationColumn.tasks.splice(destination.index, 0, {
+      ...movedTask,
+      status: destinationColumn.title,
+    });
+
+    return nextColumns;
+  };
+
+  const handleDragEnd = async ({ source, destination }) => {
     if (!destination) {
       return;
     }
@@ -60,43 +101,47 @@ function ProjectBoard() {
       return;
     }
 
-    const updateResult = updateProjectBoard(projectSlug, (currentColumns, helpers = {}) => {
-      const nextColumns = currentColumns.map((column) => ({
-        ...column,
-        tasks: [...column.tasks],
-      }));
+    const movedTask = boardColumns.find((column) => column.title === source.droppableId)?.tasks[source.index];
 
-      const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
-      const destinationColumnIndex = nextColumns.findIndex(
-        (column) => column.title === destination.droppableId
-      );
+    if (!movedTask) {
+      return;
+    }
 
-      if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
-        return currentColumns;
+    const previousBoard = cloneProjectBoard(boardColumns, projectBoardTemplate);
+    const nextBoard = applyBoardMove(boardColumns, source, destination);
+
+    if (nextBoard === boardColumns) {
+      return;
+    }
+
+    setBoardColumns(nextBoard);
+    const optimisticUpdateResult = updateProjectBoard(projectSlug, () => nextBoard);
+
+    if (!optimisticUpdateResult?.success) {
+      setBoardColumns(previousBoard);
+      if (optimisticUpdateResult?.error) {
+        window.alert(optimisticUpdateResult.error);
       }
+      return;
+    }
 
-      const sourceColumn = nextColumns[sourceColumnIndex];
-      const destinationColumn = nextColumns[destinationColumnIndex];
-      const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
+    if (source.droppableId === destination.droppableId) {
+      return;
+    }
 
-      if (!movedTask) {
-        return currentColumns;
+    const updateResult = await updateProjectTask(projectSlug, movedTask.id, {
+      status: destination.droppableId,
+    }, {
+      preferredColumnTitle: destination.droppableId,
+      preferredIndex: destination.index,
+    });
+
+    if (!updateResult?.success) {
+      setBoardColumns(previousBoard);
+      updateProjectBoard(projectSlug, () => previousBoard);
+      if (updateResult?.error) {
+        window.alert(updateResult.error);
       }
-
-      if (!helpers.canManageTask?.(movedTask)) {
-        return null;
-      }
-
-      destinationColumn.tasks.splice(destination.index, 0, {
-        ...movedTask,
-        status: destinationColumn.title,
-      });
-
-      return nextColumns;
-    }, currentActor);
-
-    if (!updateResult?.success && updateResult?.error) {
-      window.alert(updateResult.error);
     }
   };
 
@@ -106,32 +151,20 @@ function ProjectBoard() {
 
     return {
       total: allTasks.length,
-      completed: boardColumns.find((column) => column.title === "Done")?.tasks.length || 0,
+      todo: boardColumns.find((column) => column.title === "To Do")?.tasks.length || 0,
       inProgress: boardColumns.find((column) => column.title === "In Progress")?.tasks.length || 0,
       inReview: boardColumns.find((column) => column.title === "In Review")?.tasks.length || 0,
+      completed: boardColumns.find((column) => column.title === "Done")?.tasks.length || 0,
     };
   }, [boardColumns]);
 
-  const handleAddTask = (newTask) => {
-    updateProjectBoard(projectSlug, (currentColumns) =>
-      currentColumns.map((column) =>
-        column.title === newTask.status
-          ? {
-              ...column,
-              tasks: [
-                {
-                  id: Date.now(),
-                  ...newTask,
-                  status: newTask.status,
-                  createdBy: newTask.createdBy || profile?.name || "Workspace",
-                  createdByUserId: newTask.createdByUserId || profile?._id || null,
-                },
-                ...column.tasks,
-              ],
-            }
-          : column
-      )
-    );
+  const handleAddTask = async (newTask) => {
+    const result = await createProjectTask(projectSlug, newTask);
+    if (!result?.success) {
+      window.alert(result?.error || "Unable to create task.");
+    }
+
+    return result;
   };
 
   const openAddTaskModal = (status = "To Do") => {
@@ -139,18 +172,38 @@ function ProjectBoard() {
     setIsAddTaskOpen(true);
   };
 
-  const handleUpdateTask = (taskId, updates) => {
-    const result = updateProjectTask(projectSlug, taskId, updates, currentActor);
+  const handleUpdateTask = async (taskId, updates) => {
+    const result = await updateProjectTask(projectSlug, taskId, updates, currentActor);
     if (!result?.success && result?.error) {
       window.alert(result.error);
     }
   };
 
-  const handleDeleteTask = (taskId) => {
-    const result = deleteProjectTask(projectSlug, taskId, currentActor);
+  const handleDeleteTask = async (taskId) => {
+    const result = await deleteProjectTask(projectSlug, taskId, currentActor);
     if (!result?.success && result?.error) {
       window.alert(result.error);
     }
+  };
+
+  const handleAddTaskComment = async (taskId, text) => {
+    const result = await addProjectTaskComment(projectSlug, taskId, text);
+
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
+    }
+
+    return result;
+  };
+
+  const handleAddTaskAttachments = async (taskId, files) => {
+    const result = await addProjectTaskAttachments(projectSlug, taskId, files);
+
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
+    }
+
+    return result;
   };
 
   if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
@@ -225,7 +278,7 @@ function ProjectBoard() {
 
         <section className="space-y-6">
           <div className="min-w-0 space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="rounded-2xl bg-primary/10 p-2 text-primary">
@@ -240,7 +293,19 @@ function ProjectBoard() {
 
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-amber-500/10 p-2 text-amber-600">
+                  <div className="rounded-2xl bg-slate-500/10 p-2 text-slate-600">
+                    <PinIcon size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">To Do</p>
+                    <p className="text-2xl font-bold">{boardStats.todo}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-primary/10 p-2 text-primary">
                     <BriefcaseBusinessIcon size={18} />
                   </div>
                   <div>
@@ -253,7 +318,7 @@ function ProjectBoard() {
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="rounded-2xl bg-amber-500/10 p-2 text-amber-600">
-                    <CheckIcon size={18} />
+                    <LayersIcon size={18} />
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">In Review</p>
@@ -292,6 +357,8 @@ function ProjectBoard() {
                       droppableId={column.title}
                       onAddTask={openAddTaskModal}
                       onUpdateTask={handleUpdateTask}
+                      onAddTaskComment={handleAddTaskComment}
+                      onAddTaskAttachments={handleAddTaskAttachments}
                       onDeleteTask={handleDeleteTask}
                       currentUserName={displayName}
                       currentUserId={profile?._id || null}
@@ -310,6 +377,8 @@ function ProjectBoard() {
         onSubmit={handleAddTask}
         statuses={boardColumns.map((column) => column.title)}
         assigneeOptions={assigneeOptions}
+        hideNotesField
+        hideAttachmentsField
         initialStatus={selectedStatus}
       />
     </DashboardLayout>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   CheckCircle2Icon,
@@ -15,6 +15,7 @@ import { StatCard } from "./StatCard";
 import { KanbanColumn } from "./KanbanColumn";
 import { useProjects } from "../Projects/useProjects";
 import { getInitials, hasProjectAccess } from "../Projects/projectData";
+import { isTaskAssignedToUser } from "../../utils/taskAdapters";
 
 const stats = [
   {
@@ -70,6 +71,44 @@ const dashboardColumns = [
   },
 ];
 
+const PERSONAL_COLUMNS_STORAGE_KEY = "taskvue-dashboard-personal-columns";
+
+const getPersonalColumnsStorageKey = (userId = "anonymous") =>
+  `${PERSONAL_COLUMNS_STORAGE_KEY}:${userId || "anonymous"}`;
+
+const cloneDashboardColumns = () =>
+  dashboardColumns.map((column) => ({
+    ...column,
+    tasks: [],
+  }));
+
+const readStoredPersonalColumns = (storageKey) => {
+  try {
+    const savedColumns = localStorage.getItem(storageKey);
+
+    if (!savedColumns) {
+      return cloneDashboardColumns();
+    }
+
+    const parsedColumns = JSON.parse(savedColumns);
+
+    if (!Array.isArray(parsedColumns)) {
+      return cloneDashboardColumns();
+    }
+
+    return cloneDashboardColumns().map((column) => {
+      const storedColumn = parsedColumns.find((item) => item?.title === column.title);
+
+      return {
+        ...column,
+        tasks: Array.isArray(storedColumn?.tasks) ? storedColumn.tasks : [],
+      };
+    });
+  } catch {
+    return cloneDashboardColumns();
+  }
+};
+
 const getGreetingByTime = () => {
   const hour = new Date().getHours();
 
@@ -81,14 +120,26 @@ const getGreetingByTime = () => {
 
 function Home() {
   const { profile } = useCurrentUser();
-  const { projects, updateProjectBoard, updateProjectTask } = useProjects();
+  const { projects, updateProjectTask } = useProjects();
+  const personalColumnsStorageKey = getPersonalColumnsStorageKey(profile?._id);
   const firstName = profile?.name?.split(" ")[0] || "there";
   const displayName = profile?.name || "Workspace User";
   const userInitials = getInitials(displayName || "OJ");
   const greeting = getGreetingByTime();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("To Do");
-  const [personalColumns, setPersonalColumns] = useState(dashboardColumns);
+  const [personalColumns, setPersonalColumns] = useState(() =>
+    readStoredPersonalColumns(personalColumnsStorageKey)
+  );
+
+  useEffect(() => {
+    setPersonalColumns(readStoredPersonalColumns(personalColumnsStorageKey));
+  }, [personalColumnsStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(personalColumnsStorageKey, JSON.stringify(personalColumns));
+  }, [personalColumns, personalColumnsStorageKey]);
+
   const visibleProjects = useMemo(
     () => projects.filter((project) => hasProjectAccess(project, userInitials, displayName)),
     [displayName, projects, userInitials]
@@ -110,7 +161,12 @@ function Home() {
         }
 
         const matchingTasks = column.tasks
-          .filter((task) => task.assignee.includes(userInitials))
+          .filter((task) =>
+            isTaskAssignedToUser(task, {
+              userId: profile?._id || null,
+              initials: userInitials,
+            })
+          )
           .map((task) => ({
                 ...task,
                 projectName: project.title,
@@ -132,14 +188,14 @@ function Home() {
         tasks: [...(personalColumn?.tasks ?? []), ...column.tasks],
       };
     });
-  }, [personalColumns, userInitials, visibleProjects]);
+  }, [personalColumns, profile?._id, userInitials, visibleProjects]);
 
   const taskStats = useMemo(() => {
     const allTasks = boardColumns.flatMap((column) => column.tasks);
     const completedCount = boardColumns.find((column) => column.title === "Done")?.tasks.length || 0;
     const inProgressCount = boardColumns.find((column) => column.title === "In Progress")?.tasks.length || 0;
     const overdueCount = allTasks.filter((task) => {
-      const parsedDate = Date.parse(`${task.dueDate}, ${new Date().getFullYear()}`);
+      const parsedDate = task.dueDateRaw ? Date.parse(task.dueDateRaw) : Date.parse(`${task.dueDate}, ${new Date().getFullYear()}`);
       return Number.isFinite(parsedDate) && parsedDate < Date.now() && task.status !== "Done";
     }).length;
 
@@ -170,7 +226,7 @@ function Home() {
     },
   ];
 
-  const handleAddTask = (newTask) => {
+  const handleAddTask = async (newTask) => {
     setPersonalColumns((currentColumns) =>
       currentColumns.map((column) =>
         column.title === newTask.status
@@ -190,6 +246,8 @@ function Home() {
           : column
       )
     );
+
+    return { success: true };
   };
 
   const openAddTaskModal = (status = "To Do") => {
@@ -197,9 +255,12 @@ function Home() {
     setIsAddTaskOpen(true);
   };
 
-  const handleUpdateTask = (taskId, updates, projectSlug) => {
+  const handleUpdateTask = async (taskId, updates, projectSlug) => {
     if (projectSlug) {
-      updateProjectTask(projectSlug, taskId, updates);
+      const result = await updateProjectTask(projectSlug, taskId, updates);
+      if (!result?.success && result?.error) {
+        window.alert(result.error);
+      }
       return;
     }
 
@@ -246,7 +307,7 @@ function Home() {
     });
   };
 
-  const handleDragEnd = ({ source, destination }) => {
+  const handleDragEnd = async ({ source, destination }) => {
     if (!destination) {
       return;
     }
@@ -273,48 +334,20 @@ function Home() {
     }
 
     if (movedTask.projectSlug) {
-      const projectDestinationIndex = destinationTasks
-        .slice(0, destination.index)
-        .filter((task) => task.projectSlug === movedTask.projectSlug).length;
+      if (source.droppableId === destination.droppableId) {
+        return;
+      }
 
-      updateProjectBoard(movedTask.projectSlug, (currentColumns) => {
-        const nextColumns = currentColumns.map((column) => ({
-          ...column,
-          tasks: [...column.tasks],
-        }));
-
-        const sourceProjectColumnIndex = nextColumns.findIndex(
-          (column) => column.title === source.droppableId
-        );
-        const destinationProjectColumnIndex = nextColumns.findIndex(
-          (column) => column.title === destination.droppableId
-        );
-
-        if (sourceProjectColumnIndex === -1 || destinationProjectColumnIndex === -1) {
-          return currentColumns;
-        }
-
-        const sourceProjectColumn = nextColumns[sourceProjectColumnIndex];
-        const destinationProjectColumn = nextColumns[destinationProjectColumnIndex];
-        const taskIndex = sourceProjectColumn.tasks.findIndex((task) => task.id === movedTask.id);
-
-        if (taskIndex === -1) {
-          return currentColumns;
-        }
-
-        const [removedTask] = sourceProjectColumn.tasks.splice(taskIndex, 1);
-
-        if (!removedTask) {
-          return currentColumns;
-        }
-
-        destinationProjectColumn.tasks.splice(projectDestinationIndex, 0, {
-          ...removedTask,
-          status: destinationProjectColumn.title,
-        });
-
-        return nextColumns;
+      const result = await updateProjectTask(movedTask.projectSlug, movedTask.id, {
+        status: destination.droppableId,
+      }, {
+        preferredColumnTitle: destination.droppableId,
+        preferredIndex: destination.index,
       });
+
+      if (!result?.success && result?.error) {
+        window.alert(result.error);
+      }
 
       return;
     }

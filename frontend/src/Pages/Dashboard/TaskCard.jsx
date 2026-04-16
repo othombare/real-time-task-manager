@@ -22,6 +22,24 @@ const memberNameMap = {
   MK: "Meera K.",
 }
 
+const formatMetaDate = (value) => {
+  if (!value) {
+    return null
+  }
+
+  const parsedDate = new Date(value)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(parsedDate)
+}
+
 export function TaskCard({
   id,
   title,
@@ -34,64 +52,103 @@ export function TaskCard({
   dueDate,
   comments = 0,
   commentsList = [],
+  commentItems = [],
   attachments = 0,
   attachmentFiles = [],
+  attachmentItems = [],
   projectName,
   onUpdateTask,
+  onAddComment,
+  onAddAttachments,
   onDeleteTask,
   currentUserName,
   currentUserId,
+  supportsTaskDetailsEditing = true,
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeSection, setActiveSection] = useState("details")
   const [commentDraft, setCommentDraft] = useState("")
+  const [isSavingComment, setIsSavingComment] = useState(false)
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false)
   const attachmentInputRef = useRef(null)
   const priorityColors = {
     high: "bg-rose-500/10 text-rose-600 border-rose-500/20",
     medium: "bg-amber-500/10 text-amber-600 border-amber-500/20",
     low: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
   }
-  const commentCount = Math.max(comments, commentsList.length)
-  const attachmentCount = Math.max(attachments, attachmentFiles.length)
+  const normalizedPriority = String(priority || "Medium")
+  const priorityKey = normalizedPriority.toLowerCase()
+  const normalizedCommentItems =
+    commentItems.length > 0
+      ? commentItems
+      : commentsList.map((comment, index) => ({
+          id: `comment-${index}`,
+          text: comment,
+          userName: null,
+          createdAt: null,
+        }))
+  const normalizedAttachmentItems =
+    attachmentItems.length > 0
+      ? attachmentItems
+      : attachmentFiles.map((fileName, index) => ({
+          id: `attachment-${index}`,
+          name: fileName,
+          url: null,
+          uploadedAt: null,
+          uploadedBy: null,
+          sizeLabel: null,
+        }))
+  const commentCount = Math.max(comments, normalizedCommentItems.length)
+  const attachmentCount = Math.max(attachments, normalizedAttachmentItems.length)
   const resolvedCreatorName = memberNameMap[createdBy] || createdBy || "Workspace"
   const canManageTask =
     (Boolean(currentUserId) && Boolean(createdByUserId) && currentUserId === createdByUserId) ||
     (Boolean(currentUserName) &&
       String(currentUserName).trim().toLowerCase() === String(createdBy || "").trim().toLowerCase())
+  const canAddComments = supportsTaskDetailsEditing !== false && Boolean(onAddComment)
+  const canAddAttachments = supportsTaskDetailsEditing !== false && Boolean(onAddAttachments)
 
   const openDetails = (section = "details") => {
     setActiveSection(section)
     setIsOpen(true)
   }
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     const nextComment = commentDraft.trim()
 
-    if (!nextComment || !onUpdateTask || !canManageTask) {
+    if (!nextComment || !canAddComments || isSavingComment) {
       return
     }
 
-    onUpdateTask(id, {
-      comments: commentCount + 1,
-      commentsList: [...commentsList, nextComment],
-    })
+    setIsSavingComment(true)
+    const result = await onAddComment(id, nextComment)
+    setIsSavingComment(false)
+
+    if (result?.success === false) {
+      return
+    }
+
     setCommentDraft("")
     setActiveSection("comments")
   }
 
-  const handleAttachmentChange = (event) => {
-    const selectedNames = Array.from(event.target.files || []).map((file) => file.name)
+  const handleAttachmentChange = async (event) => {
+    const selectedFiles = Array.from(event.target.files || [])
 
-    if (selectedNames.length === 0 || !onUpdateTask || !canManageTask) {
+    if (selectedFiles.length === 0 || !canAddAttachments || isUploadingAttachments) {
       return
     }
 
-    onUpdateTask(id, {
-      attachments: attachmentCount + selectedNames.length,
-      attachmentFiles: [...attachmentFiles, ...selectedNames],
-    })
+    setIsUploadingAttachments(true)
+    const result = await onAddAttachments(id, selectedFiles)
+    setIsUploadingAttachments(false)
 
     event.target.value = ""
+
+    if (result?.success === false) {
+      return
+    }
+
     setActiveSection("attachments")
   }
 
@@ -129,14 +186,14 @@ export function TaskCard({
         className="w-full text-left p-4 bg-card border border-border/60 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer group space-y-3"
       >
         <div className="flex items-center justify-between">
-          <span className={cn(
-            "text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border",
-            priorityColors[priority.toLowerCase()]
-          )}>
-            {priority}
-          </span>
+            <span className={cn(
+              "text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border",
+              priorityColors[priorityKey] || priorityColors.medium
+            )}>
+              {normalizedPriority}
+            </span>
           <div className="flex -space-x-2">
-            {assignee.map((initial, i) => (
+            {(Array.isArray(assignee) ? assignee : []).map((initial, i) => (
               <div
                 key={i}
                 className="w-7 h-7 rounded-full bg-primary text-[10px] font-bold text-primary-foreground border-2 border-card flex items-center justify-center hover:z-10 transition-transform hover:-translate-y-1"
@@ -217,9 +274,9 @@ export function TaskCard({
                 <div className="space-y-3">
                   <span className={cn(
                     "inline-flex text-xs uppercase font-bold tracking-wider px-2 py-1 rounded-full border",
-                    priorityColors[priority.toLowerCase()]
+                    priorityColors[priorityKey] || priorityColors.medium
                   )}>
-                    {priority}
+                    {normalizedPriority}
                   </span>
                   <h3 className="text-xl font-semibold tracking-tight text-foreground">
                     {title}
@@ -296,14 +353,14 @@ export function TaskCard({
                 </button>
               </div>
 
-              {(activeSection === "comments" || commentsList.length > 0 || onUpdateTask) && (
+              {(activeSection === "comments" || normalizedCommentItems.length > 0 || onAddComment) && (
                 <div className="mt-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-foreground">Comments</p>
                     <span className="text-xs text-muted-foreground">{commentCount} total</span>
                   </div>
 
-                  {activeSection === "comments" && onUpdateTask && canManageTask && (
+                  {activeSection === "comments" && canAddComments && (
                     <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
                       <textarea
                         value={commentDraft}
@@ -315,27 +372,28 @@ export function TaskCard({
                         <button
                           type="button"
                           onClick={handleAddComment}
+                          disabled={isSavingComment || !commentDraft.trim()}
                           className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
                         >
                           <PlusIcon size={14} />
-                          Add comment
+                          {isSavingComment ? "Saving..." : "Add comment"}
                         </button>
                       </div>
                     </div>
                   )}
-                  {activeSection === "comments" && onUpdateTask && !canManageTask && (
-                    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                      Only the person who added this task can update or delete it.
-                    </div>
-                  )}
-                  {commentsList.length > 0 ? (
+                  {normalizedCommentItems.length > 0 ? (
                     <div className="max-h-56 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
-                      {commentsList.map((comment, index) => (
+                      {normalizedCommentItems.map((comment) => (
                         <div
-                          key={`${title}-comment-${index}`}
+                          key={`${title}-${comment.id}`}
                           className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-sm leading-6 text-muted-foreground"
                         >
-                          {comment}
+                          <p>{comment.text}</p>
+                          {(comment.userName || comment.createdAt) && (
+                            <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                              {[comment.userName, formatMetaDate(comment.createdAt)].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -347,39 +405,45 @@ export function TaskCard({
                 </div>
               )}
 
-              {(activeSection === "attachments" || attachmentFiles.length > 0 || onUpdateTask) && (
+              {(activeSection === "attachments" || normalizedAttachmentItems.length > 0 || onAddAttachments) && (
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-foreground">Attachments</p>
                     <span className="text-xs text-muted-foreground">{attachmentCount} total</span>
                   </div>
 
-                  {activeSection === "attachments" && onUpdateTask && canManageTask && (
+                  {activeSection === "attachments" && canAddAttachments && (
                     <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
                       <input
                         ref={attachmentInputRef}
                         type="file"
                         multiple
                         onChange={handleAttachmentChange}
+                        disabled={isUploadingAttachments}
                         className="block w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-muted-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary"
                       />
-                    </div>
-                  )}
-                  {activeSection === "attachments" && onUpdateTask && !canManageTask && (
-                    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                      Only the person who added this task can update or delete it.
+                      {isUploadingAttachments && (
+                        <p className="mt-2 text-xs text-muted-foreground">Uploading attachments...</p>
+                      )}
                     </div>
                   )}
 
-                  {attachmentFiles.length > 0 ? (
+                  {normalizedAttachmentItems.length > 0 ? (
                     <div className="max-h-56 overflow-y-auto rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 pr-3 text-sm text-muted-foreground custom-scrollbar">
                       <div className="space-y-2">
-                        {attachmentFiles.map((fileName, index) => (
+                        {normalizedAttachmentItems.map((attachment) => (
                           <div
-                            key={`${title}-attachment-${index}`}
+                            key={`${title}-${attachment.id}`}
                             className="rounded-xl border border-border/60 bg-background/80 px-3 py-2"
                           >
-                            {fileName}
+                            <p>{attachment.name}</p>
+                            {(attachment.uploadedBy || attachment.uploadedAt || attachment.sizeLabel) && (
+                              <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                                {[attachment.uploadedBy, formatMetaDate(attachment.uploadedAt), attachment.sizeLabel]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>

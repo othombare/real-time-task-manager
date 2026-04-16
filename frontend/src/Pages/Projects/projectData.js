@@ -363,7 +363,10 @@ export const seedProjects = [
   },
 ];
 
-export const cloneProjectBoard = (board = projectBoardTemplate) => {
+export const cloneProjectBoard = (
+  board = projectBoardTemplate,
+  template = projectBoardTemplate
+) => {
   const boardMap = new Map(
     (board || []).map((column) => [
       column.title,
@@ -380,7 +383,9 @@ export const cloneProjectBoard = (board = projectBoardTemplate) => {
     ])
   );
 
-  return projectBoardTemplate.map((templateColumn) => {
+  const boardTemplate = Array.isArray(template) && template.length > 0 ? template : projectBoardTemplate;
+
+  return boardTemplate.map((templateColumn) => {
     const existingColumn = boardMap.get(templateColumn.title);
 
     return {
