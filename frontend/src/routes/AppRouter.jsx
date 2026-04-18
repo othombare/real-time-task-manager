@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Home from "../Pages/Dashboard/Home";
 import Login from "../Pages/Auth/Login";
 import Register from "../Pages/Auth/Register";
@@ -8,7 +8,7 @@ import ResetPassword from "../Pages/Auth/ResetPassword";
 import Projects from "../Pages/Projects/Projects";
 import ProjectBoard from "../Pages/Projects/ProjectBoard";
 import ProjectTeamMembers from "../Pages/Projects/ProjectTeamMembers";
-import PerToDo from "../Pages/PerToDo";
+import MySpace from "../Pages/MySpace";
 import TeamMembers from "../Pages/TeamMembers/TeamMembers";
 import Analytics from "../Pages/Analytics/Analytics";
 import Message from "../Pages/Message/Message";
@@ -153,12 +153,16 @@ const AppRouter = () => {
           }
         />
         <Route
-          path="/personal-todo"
+          path="/my-space"
           element={
             <ProtectedRoute>
-              <PerToDo />
+              <MySpace />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/personal-todo"
+          element={<Navigate to="/my-space" replace />}
         />
       </Routes>
     </BrowserRouter>

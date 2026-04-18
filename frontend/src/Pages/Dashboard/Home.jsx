@@ -14,7 +14,7 @@ import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { StatCard } from "./StatCard";
 import { KanbanColumn } from "./KanbanColumn";
 import { useProjects } from "../Projects/useProjects";
-import { getInitials, hasProjectAccess } from "../Projects/projectData";
+import { cloneProjectBoard, getInitials, hasProjectAccess, projectBoardTemplate } from "../Projects/projectData";
 import { isTaskAssignedToUser } from "../../utils/taskAdapters";
 
 const stats = [
@@ -109,6 +109,84 @@ const readStoredPersonalColumns = (storageKey) => {
   }
 };
 
+const buildDashboardColumns = ({
+  projects = [],
+  personalColumns = [],
+  profileId = null,
+  userInitials = "",
+  displayName = "Workspace User",
+} = {}) => {
+  const assignedProjectColumns = dashboardColumns.map((column) => ({
+    ...column,
+    tasks: [],
+  }));
+
+  projects.forEach((project) => {
+    project.board.forEach((column) => {
+      const targetColumn = assignedProjectColumns.find((item) => item.title === column.title);
+
+      if (!targetColumn) {
+        return;
+      }
+
+      const matchingTasks = column.tasks
+        .filter((task) =>
+          isTaskAssignedToUser(task, {
+            userId: profileId,
+            initials: userInitials,
+          })
+        )
+        .map((task) => ({
+          ...task,
+          projectName: project.title,
+          projectSlug: project.slug,
+          createdBy: task.createdBy || project.owner || displayName,
+        }));
+
+      targetColumn.tasks.push(...matchingTasks);
+    });
+  });
+
+  return assignedProjectColumns.map((column) => {
+    const personalColumn = personalColumns.find((item) => item.title === column.title);
+
+    return {
+      ...column,
+      tasks: [...(personalColumn?.tasks ?? []), ...column.tasks],
+    };
+  });
+};
+
+const applyBoardMove = (columns, source, destination) => {
+  const nextColumns = columns.map((column) => ({
+    ...column,
+    tasks: [...column.tasks],
+  }));
+  const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
+  const destinationColumnIndex = nextColumns.findIndex(
+    (column) => column.title === destination.droppableId
+  );
+
+  if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
+    return columns;
+  }
+
+  const sourceColumn = nextColumns[sourceColumnIndex];
+  const destinationColumn = nextColumns[destinationColumnIndex];
+  const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
+
+  if (!movedTask) {
+    return columns;
+  }
+
+  destinationColumn.tasks.splice(destination.index, 0, {
+    ...movedTask,
+    status: destinationColumn.title,
+  });
+
+  return nextColumns;
+};
+
 const getGreetingByTime = () => {
   const hour = new Date().getHours();
 
@@ -120,7 +198,7 @@ const getGreetingByTime = () => {
 
 function Home() {
   const { profile } = useCurrentUser();
-  const { projects, updateProjectTask } = useProjects();
+  const { projects, updateProjectBoard, updateProjectTask } = useProjects();
   const personalColumnsStorageKey = getPersonalColumnsStorageKey(profile?._id);
   const firstName = profile?.name?.split(" ")[0] || "there";
   const displayName = profile?.name || "Workspace User";
@@ -144,51 +222,22 @@ function Home() {
     () => projects.filter((project) => hasProjectAccess(project, userInitials, displayName)),
     [displayName, projects, userInitials]
   );
-  const boardColumns = useMemo(() => {
-    const assignedProjectColumns = dashboardColumns.map((column) => ({
-      ...column,
-      tasks: [],
-    }));
+  const dashboardBoard = useMemo(
+    () =>
+      buildDashboardColumns({
+        projects: visibleProjects,
+        personalColumns,
+        profileId: profile?._id || null,
+        userInitials,
+        displayName,
+      }),
+    [displayName, personalColumns, profile?._id, userInitials, visibleProjects]
+  );
+  const [boardColumns, setBoardColumns] = useState(() => dashboardBoard);
 
-    visibleProjects.forEach((project) => {
-      project.board.forEach((column) => {
-        const targetColumn = assignedProjectColumns.find(
-          (item) => item.title === column.title
-        );
-
-        if (!targetColumn) {
-          return;
-        }
-
-        const matchingTasks = column.tasks
-          .filter((task) =>
-            isTaskAssignedToUser(task, {
-              userId: profile?._id || null,
-              initials: userInitials,
-            })
-          )
-          .map((task) => ({
-                ...task,
-                projectName: project.title,
-                projectSlug: project.slug,
-                createdBy: task.createdBy || project.owner || "Workspace",
-              }));
-
-        targetColumn.tasks.push(...matchingTasks);
-      });
-    });
-
-    return assignedProjectColumns.map((column) => {
-      const personalColumn = personalColumns.find(
-        (item) => item.title === column.title
-      );
-
-      return {
-        ...column,
-        tasks: [...(personalColumn?.tasks ?? []), ...column.tasks],
-      };
-    });
-  }, [personalColumns, profile?._id, userInitials, visibleProjects]);
+  useEffect(() => {
+    setBoardColumns(dashboardBoard);
+  }, [dashboardBoard]);
 
   const taskStats = useMemo(() => {
     const allTasks = boardColumns.flatMap((column) => column.tasks);
@@ -327,32 +376,93 @@ function Home() {
       return;
     }
 
-    const destinationTasks = [...destinationColumn.tasks];
+    const nextBoard = applyBoardMove(boardColumns, source, destination);
+    const previousBoard = boardColumns;
 
-    if (source.droppableId === destination.droppableId) {
-      destinationTasks.splice(source.index, 1);
-    }
+    setBoardColumns(nextBoard);
 
     if (movedTask.projectSlug) {
+      const previousProject = projects.find((project) => project.slug === movedTask.projectSlug);
+      const previousProjectBoard = previousProject
+        ? cloneProjectBoard(previousProject.board, projectBoardTemplate)
+        : null;
+      const projectDestinationIndex = destinationColumn.tasks
+        .slice(0, destination.index)
+        .filter((task) => task.projectSlug === movedTask.projectSlug).length;
+
+      const optimisticProjectUpdate = updateProjectBoard(movedTask.projectSlug, (currentBoard) => {
+        const nextProjectBoard = cloneProjectBoard(currentBoard, projectBoardTemplate);
+        const sourceProjectColumnIndex = nextProjectBoard.findIndex(
+          (column) => column.title === source.droppableId
+        );
+        const destinationProjectColumnIndex = nextProjectBoard.findIndex(
+          (column) => column.title === destination.droppableId
+        );
+
+        if (sourceProjectColumnIndex === -1 || destinationProjectColumnIndex === -1) {
+          return currentBoard;
+        }
+
+        const sourceProjectColumn = nextProjectBoard[sourceProjectColumnIndex];
+        const destinationProjectColumn = nextProjectBoard[destinationProjectColumnIndex];
+        const sourceTaskIndex = sourceProjectColumn.tasks.findIndex(
+          (task) => String(task.id) === String(movedTask.id)
+        );
+
+        if (sourceTaskIndex === -1) {
+          return currentBoard;
+        }
+
+        const [taskToMove] = sourceProjectColumn.tasks.splice(sourceTaskIndex, 1);
+
+        if (!taskToMove) {
+          return currentBoard;
+        }
+
+        destinationProjectColumn.tasks.splice(projectDestinationIndex, 0, {
+          ...taskToMove,
+          status: destinationProjectColumn.title,
+        });
+
+        return nextProjectBoard;
+      });
+
+      if (!optimisticProjectUpdate?.success) {
+        setBoardColumns(previousBoard);
+        if (optimisticProjectUpdate?.error) {
+          window.alert(optimisticProjectUpdate.error);
+        }
+        return;
+      }
+
       if (source.droppableId === destination.droppableId) {
         return;
       }
 
-      const result = await updateProjectTask(movedTask.projectSlug, movedTask.id, {
-        status: destination.droppableId,
-      }, {
-        preferredColumnTitle: destination.droppableId,
-        preferredIndex: destination.index,
-      });
+      const result = await updateProjectTask(
+        movedTask.projectSlug,
+        movedTask.id,
+        {
+          status: destination.droppableId,
+        },
+        {
+          preferredColumnTitle: destination.droppableId,
+          preferredIndex: projectDestinationIndex,
+        }
+      );
 
       if (!result?.success && result?.error) {
+        if (previousProjectBoard) {
+          updateProjectBoard(movedTask.projectSlug, () => previousProjectBoard);
+        }
+        setBoardColumns(previousBoard);
         window.alert(result.error);
       }
 
       return;
     }
 
-    const personalDestinationIndex = destinationTasks
+    const personalDestinationIndex = destinationColumn.tasks
       .slice(0, destination.index)
       .filter((task) => !task.projectSlug).length;
 
@@ -422,7 +532,7 @@ function Home() {
           </div>
 
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex gap-8 overflow-x-auto pb-10 custom-scrollbar snap-x snap-mandatory pr-4">
+            <motion.div layout className="flex gap-8 overflow-x-auto pb-10 custom-scrollbar snap-x snap-mandatory pr-4">
               {boardColumns.map((column) => (
                 <KanbanColumn
                   key={column.title}
@@ -435,7 +545,7 @@ function Home() {
                   }}
                 />
               ))}
-            </div>
+            </motion.div>
           </DragDropContext>
         </section>
       </div>
@@ -448,12 +558,6 @@ function Home() {
         hideAssigneeField
         defaultAssignee={userInitials}
         initialStatus={selectedStatus}
-      />
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
       />
     </DashboardLayout>
   );

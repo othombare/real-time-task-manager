@@ -25,7 +25,7 @@ function TodoForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <input
         type="text"
-        placeholder="Write your next personal task..."
+        placeholder="Write your next task..."
         className="h-12 flex-1 rounded-2xl border border-input bg-background px-4 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15"
         value={todo}
         onChange={(event) => setTodo(event.target.value)}
