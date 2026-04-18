@@ -24,6 +24,12 @@ const getProjectOwnerId = (project) => {
   return typeof project.createdBy === "object" ? project.createdBy._id : project.createdBy;
 };
 
+const getProjectCreatorName = (project) =>
+  (typeof project?.createdBy === "object" ? project.createdBy?.name : null) ||
+  project?.owner ||
+  project?.admin ||
+  "";
+
 const isProjectCompleted = (project) => {
   const boardColumns = project?.board ?? [];
   const workingColumns = boardColumns.filter((column) =>
@@ -89,11 +95,10 @@ function Projects() {
 
     const isOwnerById = Boolean(profile?._id && getProjectOwnerId(project) === profile._id);
     const normalizedDisplayName = normalizeComparableValue(displayName);
-    const isOwnerByName = normalizedDisplayName === normalizeComparableValue(project.owner || "");
-    const isAdminByName = normalizedDisplayName === normalizeComparableValue(project.admin || "");
+    const isOwnerByName = normalizedDisplayName === normalizeComparableValue(getProjectCreatorName(project));
 
-    if (!isOwnerById && !isOwnerByName && !isAdminByName) {
-      alert("Only admin have authority to delete the project.");
+    if (!isOwnerById && !isOwnerByName) {
+      alert("Only the project creator can delete this project.");
       return;
     }
 
@@ -135,55 +140,63 @@ function Projects() {
 
         <section className="grid gap-5 lg:grid-cols-[1.5fr_0.8fr]">
           <div className="space-y-4">
-            {visibleProjects.map((project) => (
-              <button
-                key={project._id || project.id}
-                type="button"
-                onClick={() => navigate(`/projects/${project.slug}`)}
-                className="w-full rounded-3xl border border-border bg-card p-5 text-left shadow-sm transition hover:border-primary/20 hover:shadow-md"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-2">
-                      <h2 className="text-lg font-semibold">{project.title}</h2>
-                      <p className="text-sm leading-6 text-muted-foreground">{project.description}</p>
+            {visibleProjects.map((project) => {
+              const canDeleteProject =
+                Boolean(profile?._id && getProjectOwnerId(project) === profile._id) ||
+                normalizeComparableValue(displayName) === normalizeComparableValue(getProjectCreatorName(project));
+
+              return (
+                <button
+                  key={project._id || project.id}
+                  type="button"
+                  onClick={() => navigate(`/projects/${project.slug}`)}
+                  className="w-full rounded-3xl border border-border bg-card p-5 text-left shadow-sm transition hover:border-primary/20 hover:shadow-md"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-2">
+                        <h2 className="text-lg font-semibold">{project.title}</h2>
+                        <p className="text-sm leading-6 text-muted-foreground">{project.description}</p>
+                      </div>
+
+                      {canDeleteProject && (
+                        <button
+                          type="button"
+                          onClick={(event) => handleDeleteProject(event, project)}
+                          disabled={deletingProjectId === (project._id || project.id)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-background text-muted-foreground transition hover:border-rose-200 hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-label={`Delete ${project.title}`}
+                        >
+                          <Trash2Icon size={16} />
+                        </button>
+                      )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(event) => handleDeleteProject(event, project)}
-                      disabled={deletingProjectId === (project._id || project.id)}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border bg-background text-muted-foreground transition hover:border-rose-200 hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
-                      aria-label={`Delete ${project.title}`}
-                    >
-                      <Trash2Icon size={16} />
-                    </button>
+                    {(project.attachments ?? 0) > 0 && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                        <PaperclipIcon size={12} />
+                        {project.attachments} attachment{project.attachments > 1 ? "s" : ""}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2">
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                          Project code
+                        </p>
+                        <p className="text-sm font-semibold">{project.joinCode}</p>
+                      </div>
+                      <div className="flex items-center gap-2 text-primary">
+                        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                          Open board
+                        </span>
+                        <ArrowRightIcon size={16} className="text-primary" />
+                      </div>
+                    </div>
                   </div>
-
-                  {(project.attachments ?? 0) > 0 && (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                      <PaperclipIcon size={12} />
-                      {project.attachments} attachment{project.attachments > 1 ? "s" : ""}
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between pt-2">
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                        Project code
-                      </p>
-                      <p className="text-sm font-semibold">{project.joinCode}</p>
-                    </div>
-                    <div className="flex items-center gap-2 text-primary">
-                      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                        Open board
-                      </span>
-                      <ArrowRightIcon size={16} className="text-primary" />
-                    </div>
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
 
             {visibleProjects.length === 0 && (
               <div className="rounded-3xl border border-dashed border-border bg-card p-6 text-sm text-muted-foreground shadow-sm">

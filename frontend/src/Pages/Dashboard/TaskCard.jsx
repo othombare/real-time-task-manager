@@ -38,6 +38,8 @@ export function TaskCard({
   attachmentFiles = [],
   projectName,
   onUpdateTask,
+  onAddComment,
+  onAddAttachments,
   onDeleteTask,
   currentUserName,
   currentUserId,
@@ -67,35 +69,73 @@ export function TaskCard({
   const handleAddComment = () => {
     const nextComment = commentDraft.trim()
 
-    if (!nextComment || !onUpdateTask || !canManageTask) {
+    if (!nextComment) {
       return
     }
 
-    onUpdateTask(id, {
-      comments: commentCount + 1,
-      commentsList: [...commentsList, nextComment],
-    })
-    setCommentDraft("")
-    setActiveSection("comments")
+    if (onAddComment) {
+      void (async () => {
+        const result = await onAddComment(id, nextComment)
+
+        if (result?.success === false) {
+          window.alert(result.error || "Unable to add comment.")
+          return
+        }
+
+        if (result?.success !== false) {
+          setCommentDraft("")
+          setActiveSection("comments")
+        }
+      })()
+      return
+    }
+
+    if (onUpdateTask) {
+      onUpdateTask(id, {
+        comments: commentCount + 1,
+        commentsList: [...commentsList, nextComment],
+      })
+      setCommentDraft("")
+      setActiveSection("comments")
+    }
   }
 
   const handleAttachmentChange = (event) => {
-    const selectedNames = Array.from(event.target.files || []).map((file) => file.name)
+    const selectedFiles = Array.from(event.target.files || [])
+    const selectedNames = selectedFiles.map((file) => file.name)
 
-    if (selectedNames.length === 0 || !onUpdateTask || !canManageTask) {
+    if (selectedNames.length === 0) {
       return
     }
 
-    onUpdateTask(id, {
-      attachments: attachmentCount + selectedNames.length,
-      attachmentFiles: [...attachmentFiles, ...selectedNames],
-    })
+    if (onAddAttachments) {
+      void (async () => {
+        const result = await onAddAttachments(id, selectedFiles)
 
-    event.target.value = ""
-    setActiveSection("attachments")
+        if (result?.success === false) {
+          window.alert(result.error || "Unable to add attachments.")
+          return
+        }
+
+        if (result?.success !== false) {
+          event.target.value = ""
+          setActiveSection("attachments")
+        }
+      })()
+      return
+    }
+
+    if (onUpdateTask) {
+      onUpdateTask(id, {
+        attachments: attachmentCount + selectedNames.length,
+        attachmentFiles: [...attachmentFiles, ...selectedNames],
+      })
+      event.target.value = ""
+      setActiveSection("attachments")
+    }
   }
 
-  const handleDeleteTask = () => {
+  const handleDeleteTask = async () => {
     if (!onDeleteTask || !canManageTask) {
       return
     }
@@ -105,8 +145,16 @@ export function TaskCard({
       return
     }
 
-    onDeleteTask(id)
-    setIsOpen(false)
+    const result = await onDeleteTask(id)
+
+    if (result?.success === false) {
+      window.alert(result.error || "Unable to delete task.")
+      return
+    }
+
+    if (result?.success !== false) {
+      setIsOpen(false)
+    }
   }
 
   return (
@@ -128,22 +176,38 @@ export function TaskCard({
         tabIndex={0}
         className="w-full text-left p-4 bg-card border border-border/60 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer group space-y-3"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <span className={cn(
             "text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border",
             priorityColors[priority.toLowerCase()]
           )}>
             {priority}
           </span>
-          <div className="flex -space-x-2">
-            {assignee.map((initial, i) => (
-              <div
-                key={i}
-                className="w-7 h-7 rounded-full bg-primary text-[10px] font-bold text-primary-foreground border-2 border-card flex items-center justify-center hover:z-10 transition-transform hover:-translate-y-1"
+          <div className="flex items-center gap-2">
+            {canManageTask && onDeleteTask && (
+              <button
+                type="button"
+                onMouseDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  void handleDeleteTask()
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 text-rose-600 transition hover:bg-rose-50 hover:text-rose-700"
+                aria-label={`Delete ${title}`}
               >
-                {initial}
-              </div>
-            ))}
+                <Trash2Icon size={14} />
+              </button>
+            )}
+            <div className="flex -space-x-2">
+              {assignee.map((initial, i) => (
+                <div
+                  key={i}
+                  className="w-7 h-7 rounded-full bg-primary text-[10px] font-bold text-primary-foreground border-2 border-card flex items-center justify-center hover:z-10 transition-transform hover:-translate-y-1"
+                >
+                  {initial}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -296,14 +360,14 @@ export function TaskCard({
                 </button>
               </div>
 
-              {(activeSection === "comments" || commentsList.length > 0 || onUpdateTask) && (
+              {(activeSection === "comments" || commentsList.length > 0 || onUpdateTask || onAddComment) && (
                 <div className="mt-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-foreground">Comments</p>
                     <span className="text-xs text-muted-foreground">{commentCount} total</span>
                   </div>
 
-                  {activeSection === "comments" && onUpdateTask && canManageTask && (
+                  {activeSection === "comments" && (onAddComment || onUpdateTask) && (
                     <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
                       <textarea
                         value={commentDraft}
@@ -323,7 +387,7 @@ export function TaskCard({
                       </div>
                     </div>
                   )}
-                  {activeSection === "comments" && onUpdateTask && !canManageTask && (
+                  {activeSection === "comments" && !onAddComment && onUpdateTask && !canManageTask && (
                     <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
                       Only the person who added this task can update or delete it.
                     </div>
@@ -347,14 +411,14 @@ export function TaskCard({
                 </div>
               )}
 
-              {(activeSection === "attachments" || attachmentFiles.length > 0 || onUpdateTask) && (
+              {(activeSection === "attachments" || attachmentFiles.length > 0 || onUpdateTask || onAddAttachments) && (
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-foreground">Attachments</p>
                     <span className="text-xs text-muted-foreground">{attachmentCount} total</span>
                   </div>
 
-                  {activeSection === "attachments" && onUpdateTask && canManageTask && (
+                  {activeSection === "attachments" && (onAddAttachments || onUpdateTask) && (
                     <div className="rounded-2xl border border-border/70 bg-muted/20 p-3">
                       <input
                         ref={attachmentInputRef}
@@ -365,7 +429,7 @@ export function TaskCard({
                       />
                     </div>
                   )}
-                  {activeSection === "attachments" && onUpdateTask && !canManageTask && (
+                  {activeSection === "attachments" && !onAddAttachments && onUpdateTask && !canManageTask && (
                     <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
                       Only the person who added this task can update or delete it.
                     </div>
@@ -396,7 +460,9 @@ export function TaskCard({
                 <div className="mt-5 border-t border-border pt-4">
                   <button
                     type="button"
-                    onClick={handleDeleteTask}
+                    onClick={() => {
+                      void handleDeleteTask()
+                    }}
                     className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
                   >
                     <Trash2Icon size={14} />

@@ -11,6 +11,8 @@ export function KanbanColumn({
   color,
   droppableId,
   onAddTask,
+  onAddTaskComment,
+  onAddTaskAttachments,
   onUpdateTask,
   onDeleteTask,
   currentUserName,
@@ -70,6 +72,8 @@ export function KanbanColumn({
                         {...task}
                         status={task.status || title}
                         statusOptions={["To Do", "In Progress", "In Review", "Done"]}
+                        onAddComment={onAddTaskComment}
+                        onAddAttachments={onAddTaskAttachments}
                         onUpdateTask={onUpdateTask}
                         onDeleteTask={onDeleteTask}
                         currentUserName={currentUserName}

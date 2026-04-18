@@ -26,8 +26,13 @@ const taskSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["todo", "in-progress", "completed"],
+      enum: ["todo", "in-progress", "in-review", "completed"],
       default: "todo",
+    },
+    sortOrder: {
+      type: Number,
+      default: null,
+      index: true,
     },
     priority: {
       type: String,
@@ -40,6 +45,9 @@ const taskSchema = new mongoose.Schema(
       {
         fileName: String,
         fileUrl: String,
+        filePath: String,
+        mimeType: String,
+        size: Number,
         uploadedBy: {
           type: mongoose.Types.ObjectId,
           ref: "User",

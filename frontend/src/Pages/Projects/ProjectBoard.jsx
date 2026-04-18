@@ -5,6 +5,7 @@ import {
   CheckCircle2Icon,
   LayersIcon,
   PlusIcon,
+  RefreshCwIcon,
   UsersIcon,
   BriefcaseBusinessIcon,
   PinIcon,
@@ -18,12 +19,21 @@ import { KanbanColumn } from "../Dashboard/KanbanColumn";
 import { cloneProjectBoard, getInitials, hasProjectAccess, projectBoardTemplate, resolveMemberLabel } from "./projectData";
 import { useProjects } from "./useProjects";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { getTaskSortOrderBetween } from "../../utils/taskAdapters";
 
 function ProjectBoard() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
   const { profile } = useCurrentUser();
-  const { getProjectBySlug, updateProjectBoard, updateProjectTask, deleteProjectTask } = useProjects();
+  const {
+    fetchProjects,
+    getProjectBySlug,
+    createProjectTask,
+    addProjectTaskComment,
+    addProjectTaskAttachments,
+    updateProjectTask,
+    deleteProjectTask,
+  } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
@@ -40,6 +50,49 @@ function ProjectBoard() {
     () => (project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)),
     [project]
   );
+  const applyBoardMove = (currentColumns, source, destination) => {
+    const nextColumns = currentColumns.map((column) => ({
+      ...column,
+      tasks: [...column.tasks],
+    }));
+
+    const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
+    const destinationColumnIndex = nextColumns.findIndex(
+      (column) => column.title === destination.droppableId
+    );
+
+    if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
+      return currentColumns;
+    }
+
+    const sourceColumn = nextColumns[sourceColumnIndex];
+    const destinationColumn = nextColumns[destinationColumnIndex];
+    const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
+
+    if (!movedTask) {
+      return currentColumns;
+    }
+
+    destinationColumn.tasks.splice(destination.index, 0, {
+      ...movedTask,
+      status: destinationColumn.title,
+    });
+
+    return nextColumns;
+  };
+
+  const getDraggedTaskSortOrder = (nextBoard, destination) => {
+    const destinationColumn = nextBoard.find((column) => column.title === destination.droppableId);
+
+    if (!destinationColumn) {
+      return Date.now();
+    }
+
+    const previousTask = destinationColumn.tasks[destination.index - 1];
+    const nextTask = destinationColumn.tasks[destination.index + 1];
+
+    return getTaskSortOrderBetween(previousTask, nextTask);
+  };
   const assigneeOptions = useMemo(
     () =>
       (project?.members ?? []).map((member) => ({
@@ -48,7 +101,7 @@ function ProjectBoard() {
       })),
     [project]
   );
-  const handleDragEnd = ({ source, destination }) => {
+  const handleDragEnd = async ({ source, destination }) => {
     if (!destination) {
       return;
     }
@@ -60,40 +113,27 @@ function ProjectBoard() {
       return;
     }
 
-    const updateResult = updateProjectBoard(projectSlug, (currentColumns, helpers = {}) => {
-      const nextColumns = currentColumns.map((column) => ({
-        ...column,
-        tasks: [...column.tasks],
-      }));
+    const movedTask = boardColumns.find((column) => column.title === source.droppableId)?.tasks[source.index];
 
-      const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
-      const destinationColumnIndex = nextColumns.findIndex(
-        (column) => column.title === destination.droppableId
-      );
+    if (!movedTask) {
+      return;
+    }
 
-      if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
-        return currentColumns;
+    const nextBoard = applyBoardMove(boardColumns, source, destination);
+    const sortOrder = getDraggedTaskSortOrder(nextBoard, destination);
+
+    const updateResult = await updateProjectTask(
+      projectSlug,
+      movedTask.id,
+      {
+        status: destination.droppableId,
+        sortOrder,
+      },
+      {
+        preferredColumnTitle: destination.droppableId,
+        preferredIndex: destination.index,
       }
-
-      const sourceColumn = nextColumns[sourceColumnIndex];
-      const destinationColumn = nextColumns[destinationColumnIndex];
-      const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
-
-      if (!movedTask) {
-        return currentColumns;
-      }
-
-      if (!helpers.canManageTask?.(movedTask)) {
-        return null;
-      }
-
-      destinationColumn.tasks.splice(destination.index, 0, {
-        ...movedTask,
-        status: destinationColumn.title,
-      });
-
-      return nextColumns;
-    }, currentActor);
+    );
 
     if (!updateResult?.success && updateResult?.error) {
       window.alert(updateResult.error);
@@ -112,26 +152,14 @@ function ProjectBoard() {
     };
   }, [boardColumns]);
 
-  const handleAddTask = (newTask) => {
-    updateProjectBoard(projectSlug, (currentColumns) =>
-      currentColumns.map((column) =>
-        column.title === newTask.status
-          ? {
-              ...column,
-              tasks: [
-                {
-                  id: Date.now(),
-                  ...newTask,
-                  status: newTask.status,
-                  createdBy: newTask.createdBy || profile?.name || "Workspace",
-                  createdByUserId: newTask.createdByUserId || profile?._id || null,
-                },
-                ...column.tasks,
-              ],
-            }
-          : column
-      )
-    );
+  const handleAddTask = async (newTask) => {
+    const result = await createProjectTask(projectSlug, newTask);
+
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
+    }
+
+    return result;
   };
 
   const openAddTaskModal = (status = "To Do") => {
@@ -139,18 +167,22 @@ function ProjectBoard() {
     setIsAddTaskOpen(true);
   };
 
-  const handleUpdateTask = (taskId, updates) => {
-    const result = updateProjectTask(projectSlug, taskId, updates, currentActor);
+  const handleUpdateTask = async (taskId, updates) => {
+    const result = await updateProjectTask(projectSlug, taskId, updates);
     if (!result?.success && result?.error) {
       window.alert(result.error);
     }
+
+    return result;
   };
 
-  const handleDeleteTask = (taskId) => {
-    const result = deleteProjectTask(projectSlug, taskId, currentActor);
+  const handleDeleteTask = async (taskId) => {
+    const result = await deleteProjectTask(projectSlug, taskId, currentActor);
     if (!result?.success && result?.error) {
       window.alert(result.error);
     }
+
+    return result;
   };
 
   if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
@@ -192,18 +224,23 @@ function ProjectBoard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-
-
-          <button
+            <button
               type="button"
-              onClick={() => navigate(`/projects/${project.slug}/attachments`)}
+              onClick={() => fetchProjects()}
               className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
             >
-              <PaperclipIcon size={16} />
-              View Attachments
+              <RefreshCwIcon size={16} />
+              Sync Board
             </button>
 
-
+            <button
+               type="button"
+               onClick={() => navigate(`/projects/${project.slug}/attachments`)}
+               className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
+             >
+               <PaperclipIcon size={16} />
+              View Attachments
+            </button>
             <button
               type="button"
               onClick={() => navigate(`/projects/${project.slug}/team-members`)}
@@ -291,6 +328,8 @@ function ProjectBoard() {
                       {...column}
                       droppableId={column.title}
                       onAddTask={openAddTaskModal}
+                      onAddTaskComment={addProjectTaskComment}
+                      onAddTaskAttachments={addProjectTaskAttachments}
                       onUpdateTask={handleUpdateTask}
                       onDeleteTask={handleDeleteTask}
                       currentUserName={displayName}

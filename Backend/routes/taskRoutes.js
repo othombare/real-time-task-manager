@@ -12,5 +12,7 @@ router
   .get(taskController.getTask)
   .patch(taskController.updateTask)
   .delete(taskController.deleteTask);
+router.post('/:id/comments', taskController.addTaskComment);
+router.post('/:id/attachments', taskController.addTaskAttachments);
 
 module.exports = router;

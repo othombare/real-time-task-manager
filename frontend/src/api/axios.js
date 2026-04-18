@@ -1,5 +1,5 @@
 const TOKEN_KEY = "token";
-const BASE_URL = "http://localhost:3000/api/v1";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api/v1";
 
 // Ensure no trailing slash
 const normalizeBaseUrl = (url) => url.replace(/\/+$/, "");
@@ -8,9 +8,11 @@ const normalizeBaseUrl = (url) => url.replace(/\/+$/, "");
 const buildUrl = (path) => {
   const baseUrl = normalizeBaseUrl(BASE_URL);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  
+
   const fullUrl = `${baseUrl}${normalizedPath}`;
-  console.log("API CALL:", fullUrl); // 🔥 helpful for debugging
+  if (import.meta.env.DEV) {
+    console.log("API CALL:", fullUrl);
+  }
 
   return fullUrl;
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ImageIcon, LogOutIcon, MailIcon, MapPinIcon, PencilIcon, SaveIcon, ShieldCheckIcon, SparklesIcon, UserRoundIcon, XIcon } from "lucide-react";
+import { ImageIcon, LogOutIcon, MailIcon, MapPinIcon, PencilIcon, SaveIcon, SparklesIcon, UserRoundIcon, XIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -40,7 +40,6 @@ function MyProfile() {
   ];
 
   const handleLogout = () => {
-    // Clear the local auth session before sending the user back to login.
     dispatch(logout());
     alert("Logged out successfully.");
     navigate("/login", { replace: true });
@@ -84,6 +83,8 @@ function MyProfile() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
+
+        {/* HEADER */}
         <section className="rounded-[32px] border border-border bg-card p-6 shadow-sm">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-4">
@@ -102,45 +103,38 @@ function MyProfile() {
                 <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">My Profile</p>
                 <h1 className="text-3xl font-bold tracking-tight">{displayName}</h1>
                 <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-                  {loading
-                    ? "Loading your account details from the fake auth API."
-                    : "This profile is now connected to the fake auth API session you used during login."}
+                  {loading ? "Loading your account details..." : " "}
                 </p>
               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {profileStats.map((stat) => (
-                <div key={stat.label} className="rounded-2xl border border-border bg-slate-50 px-4 py-3 text-center">
-                  <p className="text-lg font-bold">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
-                </div>
-              ))}
             </div>
           </div>
         </section>
 
+        {/* MAIN GRID */}
         <section className="grid gap-5 lg:grid-cols-[1.3fr_0.9fr]">
+
+          {/* LEFT SIDE */}
           <div className="space-y-5">
+
+            {/* PROFILE DETAILS */}
             <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Profile Details</h2>
+
                 {isEditing ? (
                   <div className="flex items-center gap-2">
                     <button
-                      type="button"
                       onClick={handleSaveProfile}
                       disabled={profileSaving}
-                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                      className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground"
                     >
                       <SaveIcon size={14} />
                       {profileSaving ? "Saving..." : "Save"}
                     </button>
                     <button
-                      type="button"
                       onClick={handleCancelEdit}
                       disabled={profileSaving}
-                      className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
+                      className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm"
                     >
                       <XIcon size={14} />
                       Cancel
@@ -148,148 +142,106 @@ function MyProfile() {
                   </div>
                 ) : (
                   <button
-                    type="button"
                     onClick={() => setIsEditing(true)}
-                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-sm"
                   >
                     <PencilIcon size={14} />
                     Edit
                   </button>
                 )}
               </div>
+
+              {/* DETAILS */}
               <div className="mt-5 space-y-4">
+
+                {/* ROLE */}
                 <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-slate-100 p-2 text-slate-700">
-                    <UserRoundIcon size={18} />
-                  </div>
+                  <UserRoundIcon size={18} />
                   <div>
                     <p className="text-sm font-medium">Role</p>
                     {isEditing ? (
-                        <select
-                          value={role}
-                          onChange={(event) => setRole(event.target.value)}
-                          disabled={profileSaving}
-                          className="mt-1 h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                        >
-                        {roleOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
+                      <select value={role} onChange={(e) => setRole(e.target.value)}>
+                        {roleOptions.map((opt) => (
+                          <option key={opt}>{opt}</option>
                         ))}
                       </select>
                     ) : (
-                      <p className="text-sm text-muted-foreground capitalize">{role}</p>
+                      <p>{role}</p>
                     )}
                   </div>
                 </div>
+
+                {/* EMAIL */}
                 <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-slate-100 p-2 text-slate-700">
-                    <MailIcon size={18} />
-                  </div>
+                  <MailIcon size={18} />
                   <div>
-                    <p className="text-sm font-medium">Email</p>
-                    <p className="text-sm text-muted-foreground">{displayEmail}</p>
+                    <p>Email</p>
+                    <p>{displayEmail}</p>
                   </div>
                 </div>
+
+                {/* LOCATION */}
                 <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-slate-100 p-2 text-slate-700">
-                    <MapPinIcon size={18} />
-                  </div>
+                  <MapPinIcon size={18} />
                   <div>
-                    <p className="text-sm font-medium">Location</p>
+                    <p>Location</p>
                     {isEditing ? (
-                      <input
-                        type="text"
-                        value={location}
-                        onChange={(event) => setLocation(event.target.value)}
-                        disabled={profileSaving}
-                        className="mt-1 h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                        placeholder="Add your location"
-                      />
+                      <input value={location} onChange={(e) => setLocation(e.target.value)} />
                     ) : (
-                      <p className="text-sm text-muted-foreground">{location || "No location added yet"}</p>
+                      <p>{location || "No location"}</p>
                     )}
                   </div>
                 </div>
+
+                {/* AVATAR */}
                 <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-slate-100 p-2 text-slate-700">
-                    <ImageIcon size={18} />
-                  </div>
+                  <ImageIcon size={18} />
                   <div>
-                    <p className="text-sm font-medium">Avatar</p>
-                    <p className="text-sm text-muted-foreground break-all">
-                      {displayAvatar || "No avatar returned by API"}
-                    </p>
+                    <p>Profile Photo</p>
+                    <p>{displayAvatar || "No photo"}</p>
                   </div>
                 </div>
+
               </div>
             </div>
 
+            {/* ABOUT */}
             <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-              <h2 className="text-lg font-semibold">About</h2>
+              <h1>About</h1>
               {isEditing ? (
-                <textarea
-                  value={about}
-                  onChange={(event) => setAbout(event.target.value)}
-                  disabled={profileSaving}
-                  className="mt-4 min-h-32 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-7 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                  placeholder="Add a short profile summary..."
-                />
+                <textarea value={about} onChange={(e) => setAbout(e.target.value)} />
               ) : (
-                <p className="mt-4 text-sm leading-7 text-muted-foreground">
-                  {about}
-                </p>
+                <p>{about}</p>
               )}
             </div>
+
           </div>
 
+          {/* RIGHT SIDE (FIXED) */}
           <div className="space-y-5">
-            <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-emerald-500/10 p-2 text-emerald-600">
-                  <ShieldCheckIcon size={18} />
-                </div>
-                <div>
-                  <h2 className="font-semibold">Account Status</h2>
-                  <p className="text-xs text-muted-foreground">Workspace access looks healthy.</p>
-                </div>
-              </div>
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Plan</span>
-                  <span className="font-semibold">Free</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">2FA</span>
-                  <span className="font-semibold">Not Connected</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Session</span>
-                  <span className="font-semibold">Active</span>
-                </div>
-              </div>
-            </div>
 
             <div className="rounded-3xl border border-primary/20 bg-primary/5 p-6 shadow-sm">
               <div className="flex items-center gap-3 text-primary">
                 <SparklesIcon size={18} />
-                <h2 className="font-semibold">Next Step</h2>
+                <h2>Note</h2>
               </div>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Keep your role, location, and intro updated so teammates see accurate details across project spaces.
+              <p className="mt-3 text-sm">
+                Keep your role, location, and intro updated so teammates see accurate details.
               </p>
             </div>
 
             <button
-              type="button"
               onClick={handleLogout}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-rose-600/20 transition hover:bg-rose-700 active:scale-[0.99]"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-3 text-sm text-white"
             >
               <LogOutIcon size={18} />
               Logout
             </button>
+
           </div>
+
         </section>
+
       </div>
     </DashboardLayout>
   );
