@@ -18,9 +18,30 @@ import {
   joinProject as joinProjectApi,
   removeProjectMember as removeProjectMemberApi,
 } from "../../utils/projectApi";
+<<<<<<< Updated upstream
+=======
+import {
+  addTaskAttachments as addTaskAttachmentsApi,
+  addTaskComment as addTaskCommentApi,
+  createTask as createTaskApi,
+  deleteTask as deleteTaskApi,
+  getTasks as getTasksApi,
+  updateTask as updateTaskApi,
+} from "../../utils/taskApi";
+import {
+  buildProjectBoardFromTasks,
+  groupTasksByProject,
+  mapColumnToApiTaskStatus,
+  normalizeApiTask,
+  removeTaskFromBoard,
+  upsertTaskInBoard,
+} from "../../utils/taskAdapters";
+import socket from "../../lib/socket";
+>>>>>>> Stashed changes
 import { useAppSelector } from "../../store/hooks";
 
 const STORAGE_KEY = "taskvue-projects";
+const INITIAL_PROJECT_FETCH_KEYS = new Set();
 
 const readStoredProjects = () => {
   try {
@@ -423,6 +444,151 @@ const mergeProjectIntoState = (currentProjects, nextProject) =>
       : project
   );
 
+<<<<<<< Updated upstream
+=======
+const matchesSocketProjectId = (project, projectId) =>
+  String(project?._id || project?.id || "") === String(projectId || "");
+
+const applySocketTaskChangeToProject = (project, payload) => {
+  if (!project) {
+    return project;
+  }
+
+  const action = String(payload?.action || "").toLowerCase();
+  const taskId = payload?.taskId || payload?.task?._id || payload?.task?.id;
+
+  if (!taskId) {
+    return project;
+  }
+
+  if (action === "deleted") {
+    return {
+      ...project,
+      board: removeTaskFromBoard(project.board, taskId),
+    };
+  }
+
+  if (!payload?.task) {
+    return project;
+  }
+
+  const normalizedTask = normalizeApiTask(payload.task, project);
+
+  return {
+    ...project,
+    board: upsertTaskInBoard(project.board, normalizedTask, {
+      preferredColumnTitle: normalizedTask.status,
+    }),
+  };
+};
+
+const extractProjectsPayload = (response) =>
+  Array.isArray(response?.data?.data?.projects)
+    ? response.data.data.projects
+    : Array.isArray(response?.data?.data)
+      ? response.data.data
+      : Array.isArray(response?.data)
+        ? response.data
+        : [];
+
+const extractTasksPayload = (response) =>
+  Array.isArray(response?.data?.data?.tasks)
+    ? response.data.data.tasks
+    : Array.isArray(response?.data?.data)
+      ? response.data.data
+      : Array.isArray(response?.data)
+        ? response.data
+        : [];
+
+const extractTaskPayload = (response) =>
+  response?.data?.data?.task || response?.data?.task || response?.data || null;
+
+const buildTaskDescription = (description = "", notes = "") =>
+  [String(description || "").trim(), notes ? `Notes: ${String(notes).trim()}` : ""]
+    .filter(Boolean)
+    .join("\n\n");
+
+const buildTaskCreatePayload = (task, projectId) => {
+  const assignedTo = Array.isArray(task?.assignee) ? task.assignee[0] : task?.assignee;
+
+  return {
+    title: String(task?.title || "").trim(),
+    description: buildTaskDescription(task?.description, task?.notes),
+    project: projectId,
+    assignedTo: assignedTo || undefined,
+    status: mapColumnToApiTaskStatus(task?.status),
+    priority: String(task?.priority || "Medium").toLowerCase(),
+    dueDate: task?.dueDateRaw || undefined,
+  };
+};
+
+const buildTaskUpdatePayload = (updates = {}) => {
+  const payload = {};
+
+  if (updates.title !== undefined) {
+    payload.title = String(updates.title || "").trim();
+  }
+
+  if (updates.description !== undefined || updates.notes !== undefined) {
+    payload.description = buildTaskDescription(updates.description, updates.notes);
+  }
+
+  if (updates.assignedTo !== undefined) {
+    payload.assignedTo = updates.assignedTo;
+  } else if (updates.assignee !== undefined) {
+    payload.assignedTo = Array.isArray(updates.assignee) ? updates.assignee[0] || "" : updates.assignee;
+  }
+
+  if (updates.status !== undefined) {
+    payload.status = mapColumnToApiTaskStatus(updates.status);
+  }
+
+  if (updates.priority !== undefined) {
+    payload.priority = String(updates.priority || "Medium").toLowerCase();
+  }
+
+  if (updates.dueDateRaw !== undefined) {
+    payload.dueDate = updates.dueDateRaw;
+  }
+
+  if (updates.dueDate === null) {
+    payload.dueDate = null;
+  }
+
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  );
+};
+
+const serializeFilesForUpload = async (files = []) => {
+  const normalizedFiles = Array.from(files).filter(Boolean);
+
+  return Promise.all(
+    normalizedFiles.map(
+      (file) =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = () => {
+            const result = String(reader.result || "");
+            const [, base64Content = ""] = result.split(",");
+
+            resolve({
+              fileName: file.name,
+              content: base64Content,
+              mimeType: file.type || "application/octet-stream",
+              size: file.size,
+            });
+          };
+
+          reader.onerror = () => reject(new Error(`Unable to read ${file.name}.`));
+          reader.readAsDataURL(file);
+        })
+    )
+  );
+};
+
+>>>>>>> Stashed changes
 
 
 const canManageTask = (task, actor) => {
@@ -462,6 +628,7 @@ export { ProjectsContext };
 export function ProjectsProvider({ children }) {
   const authInitialized = useAppSelector((state) => state.auth.initialized);
   const currentUser = useAppSelector((state) => state.auth.user);
+  const currentToken = useAppSelector((state) => state.auth.token);
   const [projects, setProjects] = useState(() => readStoredProjects());
 
   useEffect(() => {
@@ -501,8 +668,58 @@ export function ProjectsProvider({ children }) {
       return;
     }
 
+    const userKey = [
+      currentUser?._id || currentUser?.email || currentUser?.name || "anonymous",
+      currentToken || "no-token",
+    ].join(":");
+
+    if (INITIAL_PROJECT_FETCH_KEYS.has(userKey)) {
+      return;
+    }
+
+    INITIAL_PROJECT_FETCH_KEYS.add(userKey);
     fetchProjects();
-  }, [authInitialized, currentUser, fetchProjects]);
+  }, [authInitialized, currentToken, currentUser, fetchProjects]);
+
+  useEffect(() => {
+    const handleMembershipChange = () => {
+      fetchProjects();
+    };
+
+    const handleTaskChange = (payload = {}) => {
+      const projectId = payload?.projectId ? String(payload.projectId) : "";
+
+      if (!projectId) {
+        fetchProjects();
+        return;
+      }
+
+      let didMatchProject = false;
+
+      setProjects((currentProjects) =>
+        currentProjects.map((project) => {
+          if (!matchesSocketProjectId(project, projectId)) {
+            return project;
+          }
+
+          didMatchProject = true;
+          return applySocketTaskChangeToProject(project, payload);
+        })
+      );
+
+      if (!didMatchProject) {
+        fetchProjects();
+      }
+    };
+
+    socket.on("project:membershipChanged", handleMembershipChange);
+    socket.on("project:taskChanged", handleTaskChange);
+
+    return () => {
+      socket.off("project:membershipChanged", handleMembershipChange);
+      socket.off("project:taskChanged", handleTaskChange);
+    };
+  }, [fetchProjects]);
 
   const createProject = useCallback(
     async ({
@@ -715,11 +932,11 @@ export function ProjectsProvider({ children }) {
           response?.data?.data?.project ||
           response?.data?.project ||
           response?.data;
-         const joinedProject = normalizeProject({
-           ...backendProject,
-           joinCode: backendProject?.projectCode,
-           projectCode: backendProject?.projectCode,
-         }, currentUser);
+        const joinedProject = normalizeProject({
+          ...backendProject,
+          joinCode: backendProject?.projectCode,
+          projectCode: backendProject?.projectCode,
+        }, currentUser);
 
         setProjects((currentProjects) => {
           const exists = currentProjects.some(

@@ -18,6 +18,7 @@ import { KanbanColumn } from "../Dashboard/KanbanColumn";
 import { cloneProjectBoard, getInitials, hasProjectAccess, projectBoardTemplate, resolveMemberLabel } from "./projectData";
 import { useProjects } from "./useProjects";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import useProjectSocketRoom from "../../hooks/useProjectSocketRoom";
 
 function ProjectBoard() {
   const navigate = useNavigate();
@@ -27,6 +28,8 @@ function ProjectBoard() {
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
+  const canAccessProject = Boolean(project && hasProjectAccess(project, currentMemberId, displayName));
+  const projectRoomId = canAccessProject ? project._id || project.id : null;
   const currentActor = useMemo(
     () => ({
       userId: profile?._id || null,
@@ -36,8 +39,29 @@ function ProjectBoard() {
   );
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("To Do");
+<<<<<<< Updated upstream
   const boardColumns = useMemo(
     () => (project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)),
+=======
+  const [boardColumns, setBoardColumns] = useState(() =>
+    project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)
+  );
+
+  useProjectSocketRoom(projectRoomId);
+
+  useEffect(() => {
+    setBoardColumns(project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate));
+  }, [project]);
+
+  const assigneeOptions = useMemo(
+    () =>
+      (project?.memberProfiles ?? [])
+        .filter((memberProfile) => Boolean(memberProfile?.userId))
+        .map((memberProfile) => ({
+          value: memberProfile.userId,
+          label: memberProfile.name || resolveMemberLabel(memberProfile.id, project?.memberDirectory),
+        })),
+>>>>>>> Stashed changes
     [project]
   );
   const assigneeOptions = useMemo(
@@ -153,7 +177,31 @@ function ProjectBoard() {
     }
   };
 
+<<<<<<< Updated upstream
   if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
+=======
+  const handleAddTaskComment = async (taskId, text) => {
+    const result = await addProjectTaskComment(projectSlug, taskId, text);
+
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
+    }
+
+    return result;
+  };
+
+  const handleAddTaskAttachments = async (taskId, files) => {
+    const result = await addProjectTaskAttachments(projectSlug, taskId, files);
+
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
+    }
+
+    return result;
+  };
+
+  if (!canAccessProject) {
+>>>>>>> Stashed changes
     return (
       <DashboardLayout>
         <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">

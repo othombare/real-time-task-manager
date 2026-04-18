@@ -13,6 +13,7 @@ import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { getInitials, hasProjectAccess } from "../Projects/projectData";
 import { useProjects } from "../Projects/useProjects";
+import useProjectSocketRoom from "../../hooks/useProjectSocketRoom";
 
 const normalizeComparableValue = (value = "") => String(value).trim().toLowerCase();
 
@@ -80,8 +81,12 @@ function Attachments() {
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
+  const canAccessProject = Boolean(project && hasProjectAccess(project, currentMemberId, displayName));
+  const projectRoomId = canAccessProject ? project._id || project.id : null;
   const [feedback, setFeedback] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
+
+  useProjectSocketRoom(projectRoomId);
 
   const canDeleteAttachments = isProjectAdmin(project, profile, displayName);
   const attachments = useMemo(() => {
@@ -164,10 +169,6 @@ function Attachments() {
   };
 
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
-
-  useEffect(() => {
     const handleWindowFocus = () => {
       fetchProjects();
     };
@@ -176,7 +177,7 @@ function Attachments() {
     return () => window.removeEventListener("focus", handleWindowFocus);
   }, [fetchProjects]);
 
-  if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
+  if (!canAccessProject) {
     return (
       <DashboardLayout>
         <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">

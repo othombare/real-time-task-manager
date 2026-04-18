@@ -111,6 +111,17 @@ function Projects() {
     }
   };
 
+  const handleOpenProject = (projectSlug) => {
+    navigate(`/projects/${projectSlug}`);
+  };
+
+  const handleProjectCardKeyDown = (event, projectSlug) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleOpenProject(projectSlug);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -136,11 +147,13 @@ function Projects() {
         <section className="grid gap-5 lg:grid-cols-[1.5fr_0.8fr]">
           <div className="space-y-4">
             {visibleProjects.map((project) => (
-              <button
+              <div
                 key={project._id || project.id}
-                type="button"
-                onClick={() => navigate(`/projects/${project.slug}`)}
-                className="w-full rounded-3xl border border-border bg-card p-5 text-left shadow-sm transition hover:border-primary/20 hover:shadow-md"
+                role="button"
+                tabIndex={0}
+                onClick={() => handleOpenProject(project.slug)}
+                onKeyDown={(event) => handleProjectCardKeyDown(event, project.slug)}
+                className="w-full rounded-3xl border border-border bg-card p-5 text-left shadow-sm transition hover:border-primary/20 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-4">
@@ -182,7 +195,7 @@ function Projects() {
                     </div>
                   </div>
                 </div>
-              </button>
+              </div>
             ))}
 
             {visibleProjects.length === 0 && (

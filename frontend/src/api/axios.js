@@ -53,6 +53,7 @@ async function request(path, options = {}) {
 
   const response = await fetch(buildUrl(path), {
     method,
+    cache: method === "GET" ? "no-store" : "default",
     headers: {
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

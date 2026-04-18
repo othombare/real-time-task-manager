@@ -214,6 +214,15 @@ exports.joinProject = catchAsync(async (req, res, next) => {
 
   const joinedProject = await populateProjectWithAttachments(project._id, req);
 
+  if (global.io) {
+    global.io.emit('project:membershipChanged', {
+      projectId: project._id.toString(),
+      projectCode: joinedProject.projectCode,
+      joinedUserId: req.user.id,
+      joinedUserName: req.user.name || req.user.email || null,
+    });
+  }
+
   res.status(200).json({
     status: 'success',
     data: { project: joinedProject },

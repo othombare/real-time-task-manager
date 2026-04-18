@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { MoreHorizontalIcon, PlusIcon } from "lucide-react"
 import { Draggable } from "react-beautiful-dnd"
 import { TaskCard } from "./TaskCard"
@@ -53,6 +53,7 @@ export function KanbanColumn({
               snapshot.isDraggingOver && "bg-primary/5"
             )}
           >
+<<<<<<< Updated upstream
             <AnimatePresence mode="popLayout">
               {tasks.map((task, index) => (
                 <Draggable key={task.id} draggableId={String(task.id)} index={index}>
@@ -80,6 +81,36 @@ export function KanbanColumn({
                 </Draggable>
               ))}
             </AnimatePresence>
+=======
+            {tasks.map((task, index) => (
+              <Draggable key={task.id} draggableId={String(task.id)} index={index}>
+                {(dragProvided, dragSnapshot) => (
+                  <motion.div
+                    ref={dragProvided.innerRef}
+                    {...dragProvided.draggableProps}
+                    {...dragProvided.dragHandleProps}
+                    layout
+                    className={cn(
+                      "rounded-xl",
+                      dragSnapshot.isDragging && "rotate-1 shadow-lg"
+                    )}
+                  >
+                    <TaskCard
+                      {...task}
+                      status={task.status || title}
+                      statusOptions={["To Do", "In Progress", "In Review", "Done"]}
+                      onUpdateTask={onUpdateTask}
+                      onAddComment={onAddTaskComment}
+                      onAddAttachments={onAddTaskAttachments}
+                      onDeleteTask={onDeleteTask}
+                      currentUserName={currentUserName}
+                      currentUserId={currentUserId}
+                    />
+                  </motion.div>
+                )}
+              </Draggable>
+            ))}
+>>>>>>> Stashed changes
 
             {provided.placeholder}
 
