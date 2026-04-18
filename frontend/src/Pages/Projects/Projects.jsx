@@ -116,6 +116,17 @@ function Projects() {
     }
   };
 
+  const handleOpenProject = (projectSlug) => {
+    navigate(`/projects/${projectSlug}`);
+  };
+
+  const handleProjectCardKeyDown = (event, projectSlug) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleOpenProject(projectSlug);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">

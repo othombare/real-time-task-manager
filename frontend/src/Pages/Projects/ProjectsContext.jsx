@@ -388,6 +388,7 @@ const normalizeProject = (project, currentUser = null, rawTasks = []) => {
 };
 
 const mergeProjectsWithStoredState = (incomingProjects, currentUser = null, tasksByProject = new Map()) => {
+const mergeProjectsWithStoredState = (incomingProjects, currentUser = null, tasksByProject = new Map()) => {
   const storedProjects = readStoredProjects();
   const storedProjectMap = new Map(
     storedProjects.map((project) => [buildProjectKey(project), normalizeProject(project, currentUser)])
@@ -404,6 +405,8 @@ const mergeProjectsWithStoredState = (incomingProjects, currentUser = null, task
     if (!storedProject) {
       return normalizedProject;
     }
+
+    const storedBoard = cloneProjectBoard(storedProject.board || normalizedProject.board);
 
     return {
       ...normalizedProject,
@@ -566,6 +569,9 @@ const ProjectsContext = createContext({
   createProjectTask: () => ({ success: false }),
   addProjectTaskComment: () => ({ success: false }),
   addProjectTaskAttachments: () => ({ success: false }),
+  createProjectTask: () => ({ success: false }),
+  addProjectTaskComment: () => ({ success: false }),
+  addProjectTaskAttachments: () => ({ success: false }),
   updateProjectBoard: () => {},
   updateProjectTask: () => {},
   deleteProjectTask: () => ({ success: false }),
@@ -577,6 +583,7 @@ export { ProjectsContext };
 export function ProjectsProvider({ children }) {
   const authInitialized = useAppSelector((state) => state.auth.initialized);
   const currentUser = useAppSelector((state) => state.auth.user);
+  const currentToken = useAppSelector((state) => state.auth.token);
   const [projects, setProjects] = useState(() => readStoredProjects());
   const projectsRef = useRef(projects);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
@@ -637,6 +644,16 @@ export function ProjectsProvider({ children }) {
       return;
     }
 
+    const userKey = [
+      currentUser?._id || currentUser?.email || currentUser?.name || "anonymous",
+      currentToken || "no-token",
+    ].join(":");
+
+    if (INITIAL_PROJECT_FETCH_KEYS.has(userKey)) {
+      return;
+    }
+
+    INITIAL_PROJECT_FETCH_KEYS.add(userKey);
     fetchProjects();
   }, [authInitialized, currentUser, fetchProjects]);
 
@@ -711,6 +728,16 @@ export function ProjectsProvider({ children }) {
               Object.keys(memberDirectory).length > 0
                 ? memberDirectory
                 : buildMemberDirectory(uniqueMembers),
+            stage: stage || "Planning",
+            owner: owner || backendProject?.createdBy?.name || "Workspace",
+            admin: admin || backendProject?.createdBy?.name || owner || "Workspace",
+            joinCode: backendProject?.projectCode || joinCode || generateJoinCode(title),
+            projectCode: backendProject?.projectCode || joinCode || generateJoinCode(title),
+            members: backendProject?.members || uniqueMembers,
+            memberDirectory:
+              Object.keys(memberDirectory).length > 0
+                ? memberDirectory
+                : buildMemberDirectory(uniqueMembers),
             attachments,
             attachmentItems:
               attachmentItems.length > 0
@@ -718,6 +745,9 @@ export function ProjectsProvider({ children }) {
                 : attachmentFiles.map((fileName, index) => normalizeAttachmentEntry(fileName, index)),
             attachmentFiles,
             board: cloneProjectBoard(projectBoardTemplate),
+          },
+          currentUser
+        );
           },
           currentUser
         );
@@ -1006,11 +1036,11 @@ export function ProjectsProvider({ children }) {
           response?.data?.data?.project ||
           response?.data?.project ||
           response?.data;
-         const joinedProject = normalizeProject({
-           ...backendProject,
-           joinCode: backendProject?.projectCode,
-           projectCode: backendProject?.projectCode,
-         }, currentUser);
+        const joinedProject = normalizeProject({
+          ...backendProject,
+          joinCode: backendProject?.projectCode,
+          projectCode: backendProject?.projectCode,
+        }, currentUser);
 
         setProjects((currentProjects) => {
           const exists = currentProjects.some(
@@ -1031,6 +1061,8 @@ export function ProjectsProvider({ children }) {
 
           return [joinedProject, ...currentProjects];
         });
+
+        fetchProjects();
 
         return {
           success: true,
@@ -1261,6 +1293,9 @@ export function ProjectsProvider({ children }) {
       createProjectTask,
       addProjectTaskComment,
       addProjectTaskAttachments,
+      createProjectTask,
+      addProjectTaskComment,
+      addProjectTaskAttachments,
       updateProjectBoard,
       updateProjectTask,
       deleteProjectTask,
@@ -1277,6 +1312,9 @@ export function ProjectsProvider({ children }) {
       removeProject,
       removeProjectMember,
       addProjectAttachments,
+      createProjectTask,
+      addProjectTaskComment,
+      addProjectTaskAttachments,
       createProjectTask,
       addProjectTaskComment,
       addProjectTaskAttachments,

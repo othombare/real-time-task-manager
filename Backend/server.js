@@ -1,38 +1,67 @@
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-dotenv.config({ path: './config.env' });
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const http = require("http");
+const { Server } = require("socket.io");
 
-const app = require('./app');
+dotenv.config({ path: "./config.env" });
 
-const DB = process.env.DATABASE.replace('<PASSWORD>', process.env.DATABASE_PASSWORD);
+const app = require("./app");
 
-mongoose.connect(DB)
-.then(con => {
-  console.log('DB connection successful!');
-})
-.catch(err => {
-  console.log('DB connection error:', err.message);
+const server = http.createServer(app);
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  ...(process.env.CLIENT_ORIGIN ? process.env.CLIENT_ORIGIN.split(",") : []),
+]
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+  },
 });
 
+global.io = io;
+app.set("io", io);
 
-// //creating a new tour doc
-// const testTour = new Tour({
-//   name: 'Paris',
-//   price: 999
-// });
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
 
-// //Saving the document to the database
-// testTour.save()
-// .then(doc => {
-//   console.log('Document saved:', doc);    
-// })
-// .catch(err => {
-//   console.log('Error 💥:', err.message);
-// }); it works correctly just used for testing the connection and schema
+  socket.on("joinProject", (projectId) => {
+    if (!projectId) {
+      return;
+    }
 
+    socket.join(String(projectId));
+    console.log(`User joined project ${projectId}`);
+  });
+
+  socket.on("leaveProject", (projectId) => {
+    if (!projectId) {
+      return;
+    }
+
+    socket.leave(String(projectId));
+    console.log(`User left project ${projectId}`);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+  });
+});
+
+const DB = process.env.DATABASE.replace("<PASSWORD>", process.env.DATABASE_PASSWORD);
+
+mongoose
+  .connect(DB)
+  .then(() => console.log("DB connection successful!"))
+  .catch((err) => console.log("DB connection error:", err.message));
 
 const port = process.env.PORT || 3000;
-
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}...`);
+server.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });

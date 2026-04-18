@@ -122,6 +122,7 @@ function Addtask({
       comments: 0,
       attachments: selectedFiles.length,
       attachmentFiles: selectedFiles.map((file) => file.name),
+      files: selectedFiles,
     });
 
     if (result?.success === false) {

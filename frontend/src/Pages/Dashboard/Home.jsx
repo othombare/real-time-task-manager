@@ -245,6 +245,13 @@ function Home() {
   const personalColumnsStorageKey = getPersonalColumnsStorageKey(profile?._id);
   const firstName = profile?.name?.split(" ")[0] || "there";
   const displayName = profile?.name || "Workspace User";
+  const currentActor = useMemo(
+    () => ({
+      userId: profile?._id || null,
+      name: displayName,
+    }),
+    [displayName, profile?._id]
+  );
   const userInitials = getInitials(displayName || "OJ");
   const greeting = getGreetingByTime();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
@@ -348,6 +355,7 @@ function Home() {
     setIsAddTaskOpen(true);
   };
 
+  const handleUpdateTask = async (taskId, updates, projectSlug) => {
   const handleUpdateTask = async (taskId, updates, projectSlug) => {
     if (projectSlug) {
       const result = await updateProjectTask(projectSlug, taskId, updates);
@@ -587,6 +595,10 @@ function Home() {
                     const matchedTask = column.tasks.find((task) => task.id === taskId);
                     handleUpdateTask(taskId, updates, matchedTask?.projectSlug);
                   }}
+                  onAddTaskComment={handleAddTaskComment}
+                  onAddTaskAttachments={handleAddTaskAttachments}
+                  currentUserName={displayName}
+                  currentUserId={profile?._id || null}
                 />
               ))}
             </motion.div>

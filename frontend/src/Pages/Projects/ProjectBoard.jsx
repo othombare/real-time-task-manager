@@ -7,7 +7,6 @@ import {
   RefreshCwIcon,
   UsersIcon,
   BriefcaseBusinessIcon,
-  PinIcon,
   PaperclipIcon,
 } from "lucide-react"
 import { DragDropContext } from "react-beautiful-dnd"
@@ -364,6 +363,8 @@ function ProjectBoard() {
                       onAddTaskAttachments={addProjectTaskAttachments}
                       onUpdateTask={handleUpdateTask}
                       onDeleteTask={handleDeleteTask}
+                      onAddTaskComment={handleAddTaskComment}
+                      onAddTaskAttachments={handleAddTaskAttachments}
                       currentUserName={displayName}
                       currentUserId={profile?._id || null}
                     />

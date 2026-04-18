@@ -38,6 +38,12 @@ export const initializeAuth = createAsyncThunk(
         error.message || "Unable to restore your session."
       );
     }
+  },
+  {
+    condition: (_, { getState }) => {
+      const { auth } = getState();
+      return !auth.bootstrapping && !auth.initialized;
+    },
   }
 );
 
@@ -115,6 +121,7 @@ const authSlice = createSlice({
     user: getInitialUser(),
     token: getInitialToken(),
     loading: isAuthenticated() && !getInitialUser(),
+    bootstrapping: false,
     profileSaving: false,
     initialized: !isAuthenticated() || Boolean(getInitialUser()),
     error: null,
@@ -132,6 +139,7 @@ const authSlice = createSlice({
     builder
       .addCase(initializeAuth.pending, (state) => {
         state.loading = true;
+        state.bootstrapping = true;
         state.error = null;
       })
       .addCase(initializeAuth.fulfilled, (state, action) => {
@@ -145,6 +153,7 @@ const authSlice = createSlice({
       .addCase(initializeAuth.rejected, (state, action) => {
         state.loading = false;
         state.profileSaving = false;
+        state.bootstrapping = true;
         state.initialized = true;
         state.token = getAuthToken();
         state.user = getStoredProfile();

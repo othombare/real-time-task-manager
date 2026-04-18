@@ -15,9 +15,10 @@ import Message from "../Pages/Message/Message";
 import Settings from "../Pages/Settings/Settings";
 import Notifications from "../Pages/Notifications/Notifications";
 import MyProfile from "../Pages/MyProfile/MyProfile";
+import Attachments from "../Pages/Attachments/Attachments";
+
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
-import Attachments from "../Pages/Attachments/Attachments";
 
 const AppRouter = () => {
   return (
@@ -28,7 +29,9 @@ const AppRouter = () => {
       }}
     >
       <Routes>
-        {/* Public auth screens */}
+
+        {/* ================= PUBLIC ROUTES ================= */}
+
         <Route
           path="/"
           element={
@@ -37,6 +40,7 @@ const AppRouter = () => {
             </PublicRoute>
           }
         />
+
         <Route
           path="/login"
           element={
@@ -45,6 +49,7 @@ const AppRouter = () => {
             </PublicRoute>
           }
         />
+
         <Route
           path="/register"
           element={
@@ -53,15 +58,14 @@ const AppRouter = () => {
             </PublicRoute>
           }
         />
-        <Route
-          path="/forgot-password"
-          element={<ForgotPassword />}
-        />
-        <Route
-          path="/resetPassword/:token"
-          element={<ResetPassword />}
-        />
-        {/* Protected workspace screens */}
+
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        <Route path="/resetPassword/:token" element={<ResetPassword />} />
+
+
+        {/* ================= PROTECTED ROUTES ================= */}
+
         <Route
           path="/dashboard"
           element={
@@ -70,6 +74,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/notifications"
           element={
@@ -78,8 +83,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
-        
-       
+
         <Route
           path="/projects"
           element={
@@ -88,6 +92,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/projects/:projectSlug"
           element={
@@ -96,6 +101,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/projects/:projectSlug/attachments"
           element={
@@ -104,6 +110,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/projects/:projectSlug/team-members"
           element={
@@ -112,6 +119,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/team-members"
           element={
@@ -120,6 +128,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/analytics"
           element={
@@ -128,6 +137,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/message"
           element={
@@ -136,6 +146,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/settings"
           element={
@@ -144,6 +155,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/my-profile"
           element={
@@ -152,6 +164,7 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/my-space"
           element={

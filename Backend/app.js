@@ -5,7 +5,7 @@ const path = require('path');
 const app = express();
 app.set('query parser', 'extended');
 const morgan= require('morgan');
-
+//Routers
 const userRouter= require(`./routes/userRoutes`)
 const projectRouter = require('./routes/projectRoutes');
 const taskRouter = require('./routes/taskRoutes');
@@ -18,7 +18,11 @@ if(process.env.NODE_ENV === 'development')
   app.use(morgan('dev'));
 
 
-app.use(cors({ origin: 'http://localhost:5173', optionsSuccessStatus: 200 }));
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    credentials: true,
+    optionsSuccessStatus: 200
+}));
 app.use(express.json({ limit: '50mb' }));
 
 app.use(express.static(`${__dirname}/img`)); //built in middleware to serve static files

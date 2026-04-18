@@ -13,6 +13,7 @@ import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useProjects } from "./useProjects";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { getInitials, hasProjectAccess, resolveMemberLabel } from "./projectData";
+import useProjectSocketRoom from "../../hooks/useProjectSocketRoom";
 
 function ProjectTeamMembers() {
   const navigate = useNavigate();
@@ -22,9 +23,13 @@ function ProjectTeamMembers() {
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
+  const canAccessProject = Boolean(project && hasProjectAccess(project, currentMemberId, displayName));
+  const projectRoomId = canAccessProject ? project._id || project.id : null;
   const [memberFeedback, setMemberFeedback] = useState("");
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [removingMemberId, setRemovingMemberId] = useState(null);
+
+  useProjectSocketRoom(projectRoomId);
 
   const memberProfiles = useMemo(() => {
     const uniqueMembers = new Map();
@@ -144,7 +149,7 @@ function ProjectTeamMembers() {
     setMemberFeedback(`${selectedMember.name} was removed from the project team.`);
   };
 
-  if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
+  if (!canAccessProject) {
     return (
       <DashboardLayout>
         <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
