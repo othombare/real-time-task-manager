@@ -101,7 +101,7 @@ export function TaskCard({
   const commentCount = Math.max(comments, normalizedCommentItems.length)
   const attachmentCount = Math.max(attachments, normalizedAttachmentItems.length)
   const resolvedCreatorName = memberNameMap[createdBy] || createdBy || "Workspace"
-  const canManageTask =
+  const canDeleteTask =
     (Boolean(currentUserId) && Boolean(createdByUserId) && currentUserId === createdByUserId) ||
     (Boolean(currentUserName) &&
       String(currentUserName).trim().toLowerCase() === String(createdBy || "").trim().toLowerCase())
@@ -153,7 +153,7 @@ export function TaskCard({
   }
 
   const handleDeleteTask = () => {
-    if (!onDeleteTask || !canManageTask) {
+    if (!onDeleteTask || !canDeleteTask) {
       return
     }
 
@@ -353,7 +353,7 @@ export function TaskCard({
                 </button>
               </div>
 
-              {(activeSection === "comments" || normalizedCommentItems.length > 0 || onAddComment) && (
+              {(activeSection === "comments" || normalizedCommentItems.length > 0 || canAddComments) && (
                 <div className="mt-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-foreground">Comments</p>
@@ -405,7 +405,7 @@ export function TaskCard({
                 </div>
               )}
 
-              {(activeSection === "attachments" || normalizedAttachmentItems.length > 0 || onAddAttachments) && (
+              {(activeSection === "attachments" || normalizedAttachmentItems.length > 0 || canAddAttachments) && (
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-foreground">Attachments</p>
@@ -421,7 +421,7 @@ export function TaskCard({
                         onChange={handleAttachmentChange}
                         disabled={isUploadingAttachments}
                         className="block w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-muted-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary"
-                      />
+                        />
                       {isUploadingAttachments && (
                         <p className="mt-2 text-xs text-muted-foreground">Uploading attachments...</p>
                       )}
@@ -456,7 +456,7 @@ export function TaskCard({
                 </div>
               )}
 
-              {canManageTask && onDeleteTask && (
+              {canDeleteTask && onDeleteTask && (
                 <div className="mt-5 border-t border-border pt-4">
                   <button
                     type="button"

@@ -1,42 +1,13 @@
+const fs = require('fs/promises');
+const path = require('path');
 const mongoose = require('mongoose');
 const Task = require('../models/taskModel');
 const Project = require('../models/projectModel');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
-const fs = require('fs/promises');
-const path = require('path');
 
 const TASK_POPULATE_FIELDS = 'name email photo role about location';
 const TASK_ATTACHMENTS_ROOT = path.join(__dirname, '..', 'uploads', 'tasks');
-
-const isProjectMember = (project, userId) => {
-  if (!project || !userId) {
-    return false;
-  }
-
-  return (
-    project.createdBy?.toString() === userId ||
-    (project.members || []).some(
-      (member) => member.user && member.user.toString() === userId
-    )
-  );
-};
-
-const hasProjectAdminAccess = (project, userId) => {
-  if (!project || !userId) {
-    return false;
-  }
-
-  return (
-    project.createdBy?.toString() === userId ||
-    (project.members || []).some(
-      (member) =>
-        member.user &&
-        member.user.toString() === userId &&
-        member.role === 'admin'
-    )
-  );
-};
 
 const populateTaskQuery = (query) =>
   query
@@ -80,7 +51,7 @@ const normalizeTaskForResponse = (task, req) => {
     return null;
   }
 
-  const taskObject = task.toObject ? task.toObject() : task;
+  const taskObject = task.toObject ? task.toObject({ virtuals: true, getters: true }) : task;
 
   return {
     ...taskObject,
@@ -88,6 +59,19 @@ const normalizeTaskForResponse = (task, req) => {
       buildTaskAttachmentResponse(taskObject._id || task.id, attachment, req)
     ),
   };
+};
+
+const isProjectMember = (project, userId) => {
+  if (!project || !userId) {
+    return false;
+  }
+
+  return (
+    project.createdBy?.toString() === userId ||
+    (project.members || []).some(
+      (member) => member.user && member.user.toString() === userId
+    )
+  );
 };
 
 const getTaskWithProjectAccess = async (taskId, userId) => {
@@ -254,30 +238,12 @@ exports.updateTask = catchAsync(async (req, res, next) => {
     return next(new AppError('Invalid task id.', 400));
   }
 
-  const { task: existingTask, project } = await getTaskWithProjectAccess(id, req.user.id);
+  const { project } = await getTaskWithProjectAccess(id, req.user.id);
 
   const allowedUpdates = ['title', 'description', 'assignedTo', 'status', 'priority', 'dueDate'];
   const updates = Object.fromEntries(
     Object.entries(req.body).filter(([key]) => allowedUpdates.includes(key))
   );
-
-  const isStatusOnlyUpdate =
-    Object.keys(updates).length === 1 &&
-    Object.prototype.hasOwnProperty.call(updates, 'status');
-
-  const canUpdateTask =
-    existingTask.createdBy?.toString() === req.user.id ||
-    hasProjectAdminAccess(project, req.user.id) ||
-    (isStatusOnlyUpdate && isProjectMember(project, req.user.id));
-
-  if (!canUpdateTask) {
-    return next(
-      new AppError(
-        'Only the task creator, a project admin, or a project member moving status can update this task.',
-        403
-      )
-    );
-  }
 
   if (updates.title !== undefined && !String(updates.title).trim()) {
     return next(new AppError('Task title cannot be empty.', 400));

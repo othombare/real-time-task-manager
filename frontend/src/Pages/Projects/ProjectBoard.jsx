@@ -126,6 +126,33 @@ function ProjectBoard() {
     }
 
     if (source.droppableId === destination.droppableId) {
+      const updateResult = updateProjectBoard(projectSlug, (currentColumns) => {
+        const nextColumns = cloneProjectBoard(currentColumns, projectBoardTemplate);
+
+        const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
+        const destinationColumnIndex = nextColumns.findIndex(
+          (column) => column.title === destination.droppableId
+        );
+
+        if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
+          return currentColumns;
+        }
+
+        const sourceColumnCopy = nextColumns[sourceColumnIndex];
+        const destinationColumnCopy = nextColumns[destinationColumnIndex];
+        const [reorderedTask] = sourceColumnCopy.tasks.splice(source.index, 1);
+
+        if (!reorderedTask) {
+          return currentColumns;
+        }
+
+        destinationColumnCopy.tasks.splice(destination.index, 0, reorderedTask);
+        return nextColumns;
+      });
+
+      if (!updateResult?.success && updateResult?.error) {
+        window.alert(updateResult.error);
+      }
       return;
     }
 
