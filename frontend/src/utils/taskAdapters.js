@@ -178,7 +178,9 @@ export const normalizeApiTask = (task, project = null) => {
     ? task.attachments.map((attachment, index) => normalizeAttachmentEntry(attachment, index))
     : [];
   const commentItems = Array.isArray(task?.comments)
-    ? task.comments.map((comment, index) => normalizeCommentEntry(comment, index)).filter((comment) => Boolean(comment.text))
+    ? task.comments
+        .map((comment, index) => normalizeCommentEntry(comment, index))
+        .filter((comment) => Boolean(comment.text))
     : [];
   const normalizedPriority = String(task?.priority || "medium").toLowerCase();
 
@@ -271,13 +273,11 @@ export const buildTaskUpdatePayload = (updates = {}) => {
     }
   }
 
-  return Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== undefined)
-  );
+  return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
 };
 
 export const buildProjectBoardFromTasks = (tasks = []) => {
-  const groupedBoard = cloneProjectBoard(apiProjectBoardTemplate, apiProjectBoardTemplate).map((column) => ({
+  const groupedBoard = cloneProjectBoard(apiProjectBoardTemplate).map((column) => ({
     ...column,
     tasks: [],
   }));

@@ -27,6 +27,7 @@ const taskSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["todo", "in-progress", "in-review", "completed"],
+      enum: ["todo", "in-progress", "in-review", "completed"],
       default: "todo",
     },
     sortOrder: {
@@ -44,6 +45,7 @@ const taskSchema = new mongoose.Schema(
     attachments: [
       {
         fileName: String,
+        filePath: String,
         fileUrl: String,
         filePath: String,
         mimeType: String,
@@ -80,22 +82,5 @@ const taskSchema = new mongoose.Schema(
 
 // Compound index
 taskSchema.index({ project: 1, assignedTo: 1 });
-
-// Pre-save middleware to auto-adjust priority based on dueDate
-taskSchema.pre("save", function () {
-  if (this.dueDate) {
-    const now = new Date();
-    const timeDifference = this.dueDate - now;
-    const daysLeft = timeDifference / (1000 * 60 * 60 * 24);
-
-    if (daysLeft <= 1) {
-      this.priority = "high";
-    } else if (daysLeft <= 3) {
-      this.priority = "medium";
-    } else {
-      this.priority = "low";
-    }
-  }
-});
 
 module.exports = mongoose.model("Task", taskSchema);

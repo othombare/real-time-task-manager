@@ -24,6 +24,8 @@ function Addtask({
   projectOptions = [],
   assigneeOptions = [],
   hideAssigneeField = false,
+  hideNotesField = false,
+  hideAttachmentsField = false,
   defaultAssignee = "",
   initialStatus = "To Do",
 }) {
@@ -72,20 +74,24 @@ function Addtask({
     }
   };
 
-  const handleClose = () => {
+  const resetForm = () => {
     setForm({
       ...initialFormState,
       assignee: defaultAssignee,
-      status: statuses[0] || "To Do",
+      status: statuses.includes(initialStatus) ? initialStatus : statuses[0] || "To Do",
     });
     setSelectedFiles([]);
     if (attachmentInputRef.current) {
       attachmentInputRef.current.value = "";
     }
+  };
+
+  const handleClose = () => {
+    resetForm();
     onClose();
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     const trimmedTitle = form.title.trim();
@@ -99,7 +105,7 @@ function Addtask({
       (option) => option.value === trimmedAssignee
     );
 
-    onSubmit({
+    const result = await onSubmit({
       title: trimmedTitle,
       description: form.description.trim(),
       notes: form.notes.trim(),
@@ -108,6 +114,7 @@ function Addtask({
       status: form.status,
       assignee: [trimmedAssignee],
       assigneeNames: selectedAssigneeOption ? [selectedAssigneeOption.label] : [trimmedAssignee],
+      dueDateRaw: form.dueDate,
       dueDate: new Date(form.dueDate).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -117,15 +124,10 @@ function Addtask({
       attachmentFiles: selectedFiles.map((file) => file.name),
     });
 
-    setForm({
-      ...initialFormState,
-      assignee: defaultAssignee,
-      status: statuses[0] || "To Do",
-    });
-    setSelectedFiles([]);
-    if (attachmentInputRef.current) {
-      attachmentInputRef.current.value = "";
+    if (result?.success === false) {
+      return;
     }
+
     handleClose();
   };
 
@@ -157,16 +159,18 @@ function Addtask({
             multiline
           />
 
-          <Input
-            label="Notes"
-            name="notes"
-            value={form.notes}
-            onChange={handleChange}
-            placeholder="Add reminders, blockers, or small implementation notes."
-            hint="Optional"
-            multiline
-            rows={3}
-          />
+          {!hideNotesField && (
+            <Input
+              label="Notes"
+              name="notes"
+              value={form.notes}
+              onChange={handleChange}
+              placeholder="Add reminders, blockers, or small implementation notes."
+              hint="Optional"
+              multiline
+              rows={3}
+            />
+          )}
 
           {showProjectField && (
             <div className="space-y-2">
@@ -284,27 +288,29 @@ function Addtask({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-semibold" htmlFor="task-attachments">
-              Attachments
-              <span className="ml-2 text-xs font-medium text-muted-foreground">
-                Optional
-              </span>
-            </label>
-            <input
-              ref={attachmentInputRef}
-              id="task-attachments"
-              type="file"
-              multiple
-              onChange={handleAttachmentChange}
-              className="block w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm text-muted-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary"
-            />
-            {selectedFiles.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""} selected
-              </p>
-            )}
-          </div>
+          {!hideAttachmentsField && (
+            <div className="space-y-2">
+              <label className="text-sm font-semibold" htmlFor="task-attachments">
+                Attachments
+                <span className="ml-2 text-xs font-medium text-muted-foreground">
+                  Optional
+                </span>
+              </label>
+              <input
+                ref={attachmentInputRef}
+                id="task-attachments"
+                type="file"
+                multiple
+                onChange={handleAttachmentChange}
+                className="block w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm text-muted-foreground file:mr-4 file:rounded-xl file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary"
+              />
+              {selectedFiles.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""} selected
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
             <Button

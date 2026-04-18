@@ -1,7 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react"
 import {
   ArrowLeftIcon,
-  CheckIcon,
   CheckCircle2Icon,
   LayersIcon,
   PlusIcon,
@@ -10,21 +9,27 @@ import {
   BriefcaseBusinessIcon,
   PinIcon,
   PaperclipIcon,
-} from "lucide-react";
-import { DragDropContext } from "react-beautiful-dnd";
-import { useNavigate, useParams } from "react-router-dom";
-import Addtask from "../Addtask";
-import DashboardLayout from "../Dashboard/DashboardLayout";
-import { KanbanColumn } from "../Dashboard/KanbanColumn";
-import { cloneProjectBoard, getInitials, hasProjectAccess, projectBoardTemplate, resolveMemberLabel } from "./projectData";
-import { useProjects } from "./useProjects";
-import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { getTaskSortOrderBetween } from "../../utils/taskAdapters";
+} from "lucide-react"
+import { DragDropContext } from "react-beautiful-dnd"
+import { useNavigate, useParams } from "react-router-dom"
+import Addtask from "../Addtask"
+import DashboardLayout from "../Dashboard/DashboardLayout"
+import { KanbanColumn } from "../Dashboard/KanbanColumn"
+import {
+  cloneProjectBoard,
+  getInitials,
+  hasProjectAccess,
+  projectBoardTemplate,
+  resolveMemberLabel,
+} from "./projectData"
+import { useProjects } from "./useProjects"
+import { useCurrentUser } from "../../hooks/useCurrentUser"
+import { getTaskSortOrderBetween } from "../../utils/taskAdapters"
 
 function ProjectBoard() {
-  const navigate = useNavigate();
-  const { projectSlug } = useParams();
-  const { profile } = useCurrentUser();
+  const navigate = useNavigate()
+  const { projectSlug } = useParams()
+  const { profile } = useCurrentUser()
   const {
     fetchProjects,
     getProjectBySlug,
@@ -33,66 +38,71 @@ function ProjectBoard() {
     addProjectTaskAttachments,
     updateProjectTask,
     deleteProjectTask,
-  } = useProjects();
-  const project = getProjectBySlug(projectSlug);
-  const displayName = profile?.name || "Workspace User";
-  const currentMemberId = getInitials(displayName);
+  } = useProjects()
+  const project = getProjectBySlug(projectSlug)
+  const displayName = profile?.name || "Workspace User"
+  const currentMemberId = getInitials(displayName)
   const currentActor = useMemo(
     () => ({
       userId: profile?._id || null,
       name: displayName,
     }),
     [displayName, profile?._id]
-  );
-  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState("To Do");
-  const boardColumns = useMemo(
-    () => (project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)),
-    [project]
-  );
+  )
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
+  const [selectedStatus, setSelectedStatus] = useState("To Do")
+  const [boardColumns, setBoardColumns] = useState(() =>
+    project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)
+  )
+
+  useEffect(() => {
+    setBoardColumns(project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate))
+  }, [project])
+
   const applyBoardMove = (currentColumns, source, destination) => {
     const nextColumns = currentColumns.map((column) => ({
       ...column,
       tasks: [...column.tasks],
-    }));
+    }))
 
-    const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
+    const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId)
     const destinationColumnIndex = nextColumns.findIndex(
       (column) => column.title === destination.droppableId
-    );
+    )
 
     if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
-      return currentColumns;
+      return currentColumns
     }
 
-    const sourceColumn = nextColumns[sourceColumnIndex];
-    const destinationColumn = nextColumns[destinationColumnIndex];
-    const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
+    const sourceColumn = nextColumns[sourceColumnIndex]
+    const destinationColumn = nextColumns[destinationColumnIndex]
+    const [movedTask] = sourceColumn.tasks.splice(source.index, 1)
 
     if (!movedTask) {
-      return currentColumns;
+      return currentColumns
     }
 
     destinationColumn.tasks.splice(destination.index, 0, {
       ...movedTask,
       status: destinationColumn.title,
-    });
+    })
 
-    return nextColumns;
-  };
+    return nextColumns
+  }
 
   const getDraggedTaskSortOrder = (nextBoard, destination) => {
-    const destinationColumn = nextBoard.find((column) => column.title === destination.droppableId);
+    const destinationColumn = nextBoard.find((column) => column.title === destination.droppableId)
 
     if (!destinationColumn) {
-      return Date.now();
+      return Date.now()
     }
 
-    const previousTask = destinationColumn.tasks[destination.index - 1];
-    const nextTask = destinationColumn.tasks[destination.index + 1];
+    const previousTask = destinationColumn.tasks[destination.index - 1]
+    const nextTask = destinationColumn.tasks[destination.index + 1]
 
-    return getTaskSortOrderBetween(previousTask, nextTask);
-  };
+    return getTaskSortOrderBetween(previousTask, nextTask)
+  }
+
   const assigneeOptions = useMemo(
     () =>
       (project?.members ?? []).map((member) => ({
@@ -100,27 +110,33 @@ function ProjectBoard() {
         label: resolveMemberLabel(member, project?.memberDirectory),
       })),
     [project]
-  );
+  )
+
   const handleDragEnd = async ({ source, destination }) => {
     if (!destination) {
-      return;
+      return
     }
 
     const isSamePosition =
-      source.droppableId === destination.droppableId && source.index === destination.index;
+      source.droppableId === destination.droppableId && source.index === destination.index
 
     if (isSamePosition) {
-      return;
+      return
     }
 
-    const movedTask = boardColumns.find((column) => column.title === source.droppableId)?.tasks[source.index];
+    const sourceColumn = boardColumns.find((column) => column.title === source.droppableId)
+    const destinationColumn = boardColumns.find((column) => column.title === destination.droppableId)
+    const movedTask = sourceColumn?.tasks[source.index]
 
-    if (!movedTask) {
-      return;
+    if (!sourceColumn || !destinationColumn || !movedTask) {
+      return
     }
 
-    const nextBoard = applyBoardMove(boardColumns, source, destination);
-    const sortOrder = getDraggedTaskSortOrder(nextBoard, destination);
+    const previousBoard = boardColumns
+    const nextBoard = applyBoardMove(boardColumns, source, destination)
+    const sortOrder = getDraggedTaskSortOrder(nextBoard, destination)
+
+    setBoardColumns(nextBoard)
 
     const updateResult = await updateProjectTask(
       projectSlug,
@@ -133,57 +149,62 @@ function ProjectBoard() {
         preferredColumnTitle: destination.droppableId,
         preferredIndex: destination.index,
       }
-    );
+    )
 
-    if (!updateResult?.success && updateResult?.error) {
-      window.alert(updateResult.error);
+    if (!updateResult?.success) {
+      setBoardColumns(previousBoard)
+      if (updateResult?.error) {
+        window.alert(updateResult.error)
+      }
     }
-  };
-
+  }
 
   const boardStats = useMemo(() => {
-    const allTasks = boardColumns.flatMap((column) => column.tasks);
+    const allTasks = boardColumns.flatMap((column) => column.tasks)
 
     return {
       total: allTasks.length,
-      completed: boardColumns.find((column) => column.title === "Done")?.tasks.length || 0,
+      todo: boardColumns.find((column) => column.title === "To Do")?.tasks.length || 0,
       inProgress: boardColumns.find((column) => column.title === "In Progress")?.tasks.length || 0,
       inReview: boardColumns.find((column) => column.title === "In Review")?.tasks.length || 0,
-    };
-  }, [boardColumns]);
+      completed: boardColumns.find((column) => column.title === "Done")?.tasks.length || 0,
+    }
+  }, [boardColumns])
 
   const handleAddTask = async (newTask) => {
-    const result = await createProjectTask(projectSlug, newTask);
+    const result = await createProjectTask(projectSlug, newTask)
 
     if (!result?.success && result?.error) {
-      window.alert(result.error);
+      window.alert(result.error)
     }
 
-    return result;
-  };
+    return result
+  }
 
   const openAddTaskModal = (status = "To Do") => {
-    setSelectedStatus(status);
-    setIsAddTaskOpen(true);
-  };
+    setSelectedStatus(status)
+    setIsAddTaskOpen(true)
+  }
 
   const handleUpdateTask = async (taskId, updates) => {
-    const result = await updateProjectTask(projectSlug, taskId, updates);
+    const result = await updateProjectTask(projectSlug, taskId, updates)
+
     if (!result?.success && result?.error) {
-      window.alert(result.error);
+      window.alert(result.error)
     }
 
-    return result;
-  };
+    return result
+  }
 
   const handleDeleteTask = async (taskId) => {
-    const result = await deleteProjectTask(projectSlug, taskId, currentActor);
+    const result = await deleteProjectTask(projectSlug, taskId, currentActor)
+
     if (!result?.success && result?.error) {
-      window.alert(result.error);
+      window.alert(result.error)
     }
 
-    return result;
-  };
+    return result
+  }
 
   if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
     return (
@@ -203,7 +224,7 @@ function ProjectBoard() {
           </button>
         </div>
       </DashboardLayout>
-    );
+    )
   }
 
   return (
@@ -234,11 +255,11 @@ function ProjectBoard() {
             </button>
 
             <button
-               type="button"
-               onClick={() => navigate(`/projects/${project.slug}/attachments`)}
-               className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
-             >
-               <PaperclipIcon size={16} />
+              type="button"
+              onClick={() => navigate(`/projects/${project.slug}/attachments`)}
+              className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
+            >
+              <PaperclipIcon size={16} />
               View Attachments
             </button>
             <button
@@ -262,7 +283,7 @@ function ProjectBoard() {
 
         <section className="space-y-6">
           <div className="min-w-0 space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="rounded-2xl bg-primary/10 p-2 text-primary">
@@ -277,7 +298,19 @@ function ProjectBoard() {
 
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-amber-500/10 p-2 text-amber-600">
+                  <div className="rounded-2xl bg-slate-500/10 p-2 text-slate-600">
+                    <PinIcon size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">To Do</p>
+                    <p className="text-2xl font-bold">{boardStats.todo}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-primary/10 p-2 text-primary">
                     <BriefcaseBusinessIcon size={18} />
                   </div>
                   <div>
@@ -290,7 +323,7 @@ function ProjectBoard() {
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="rounded-2xl bg-amber-500/10 p-2 text-amber-600">
-                    <CheckIcon size={18} />
+                    <LayersIcon size={18} />
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">In Review</p>
@@ -316,7 +349,6 @@ function ProjectBoard() {
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Project Board</h2>
-                  
                 </div>
               </div>
 
@@ -349,10 +381,12 @@ function ProjectBoard() {
         onSubmit={handleAddTask}
         statuses={boardColumns.map((column) => column.title)}
         assigneeOptions={assigneeOptions}
+        hideNotesField
+        hideAttachmentsField
         initialStatus={selectedStatus}
       />
     </DashboardLayout>
-  );
+  )
 }
 
-export default ProjectBoard;
+export default ProjectBoard

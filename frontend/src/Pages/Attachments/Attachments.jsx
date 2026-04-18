@@ -21,33 +21,12 @@ const isProjectAdmin = (project, profile, displayName) => {
     return false;
   }
 
-  const profileId = profile?._id || profile?.id;
+  const profileId = profile?._id;
   const projectOwnerId =
-    typeof project.createdBy === "object"
-      ? project.createdBy?._id || project.createdBy?.id
-      : project.createdBy;
-  const projectAdminId =
-    typeof project.admin === "object" ? project.admin?._id || project.admin?.id : null;
-  const profileEmail = profile?.email || "";
-  const isAdminMember = (project.memberProfiles || []).some((memberProfile) => {
-    const memberId = memberProfile?.userId || memberProfile?._id || memberProfile?.id;
-
-    return (
-      memberProfile?.memberRole === "admin" &&
-      ((profileId && memberId && profileId === memberId) ||
-        (profileEmail &&
-          memberProfile?.email &&
-          normalizeComparableValue(profileEmail) === normalizeComparableValue(memberProfile.email)) ||
-        (displayName &&
-          memberProfile?.name &&
-          normalizeComparableValue(displayName) === normalizeComparableValue(memberProfile.name)))
-    );
-  });
+    typeof project.createdBy === "object" ? project.createdBy?._id : project.createdBy;
 
   return (
     Boolean(profileId && projectOwnerId && profileId === projectOwnerId) ||
-    Boolean(profileId && projectAdminId && profileId === projectAdminId) ||
-    isAdminMember ||
     normalizeComparableValue(displayName) === normalizeComparableValue(project.admin || "") ||
     normalizeComparableValue(displayName) === normalizeComparableValue(project.owner || "")
   );
@@ -85,14 +64,29 @@ function Attachments() {
 
   const canDeleteAttachments = isProjectAdmin(project, profile, displayName);
   const attachments = useMemo(() => {
+    const projectAttachments = project?.attachmentItems || [];
+    const taskAttachments = (project?.board || []).flatMap((column) =>
+      (column.tasks || []).flatMap((task, taskIndex) =>
+        (task.attachmentFiles || []).map((fileName, fileIndex) => ({
+          id: `task-${task.id || taskIndex}-${fileIndex}-${fileName}`,
+          name: fileName,
+          sizeLabel: null,
+          uploadedAt: null,
+          uploadedBy: task.createdBy || project?.admin || project?.owner,
+          url: null,
+          source: "task",
+        }))
+      )
+    );
+
     const attachmentMap = new Map();
 
-    (project?.attachmentItems || []).forEach((attachment, index) => {
+    [...projectAttachments, ...taskAttachments].forEach((attachment, index) => {
       const key = attachment.id || `${attachment.name}-${index}`;
       if (!attachmentMap.has(key)) {
         attachmentMap.set(key, {
           ...attachment,
-          source: "project",
+          source: attachment.source || "project",
         });
       }
     });
@@ -147,6 +141,11 @@ function Attachments() {
       return;
     }
 
+    if (attachment.source === "task") {
+      window.alert("Task-level attachments can be viewed here, but only project-level attachments can be deleted from this page.");
+      return;
+    }
+
     if (!project?._id) {
       window.alert("Project not found.");
       return;
@@ -159,7 +158,6 @@ function Attachments() {
       return;
     }
 
-    await fetchProjects();
     setFeedback(`Deleted ${attachment.name}.`);
   };
 
@@ -281,7 +279,7 @@ function Attachments() {
                               {attachment.sizeLabel || "Size not available"}
                             </p>
                             <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                              Project attachment
+                              {attachment.source === "task" ? "Task attachment" : "Project attachment"}
                             </p>
                           </div>
                         </div>
@@ -312,7 +310,7 @@ function Attachments() {
                         <button
                           type="button"
                           onClick={() => handleDeleteAttachment(attachment)}
-                          disabled={!canDeleteAttachments}
+                          disabled={!canDeleteAttachments || attachment.source === "task"}
                           className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-background px-4 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground disabled:hover:bg-background"
                         >
                           <Trash2Icon size={16} />
@@ -326,7 +324,7 @@ function Attachments() {
                 <div className="mt-5 rounded-3xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center">
                   <p className="text-sm font-semibold">No project attachments yet</p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Files added during project creation or from this page will appear here.
+                    Files added here or attached across project tasks will appear here.
                   </p>
                 </div>
               )}
@@ -345,3 +343,7 @@ function Attachments() {
 }
 
 export default Attachments;
+
+
+
+

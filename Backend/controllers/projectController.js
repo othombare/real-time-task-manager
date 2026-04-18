@@ -206,7 +206,12 @@ exports.joinProject = catchAsync(async (req, res, next) => {
   );
 
   if (isAlreadyMember || project.createdBy.toString() === req.user.id) {
-    return next(new AppError('Already a member.', 400));
+    const existingProject = await populateProjectWithAttachments(project._id, req);
+
+    return res.status(200).json({
+      status: 'success',
+      data: { project: existingProject },
+    });
   }
 
   project.members.push({ user: req.user.id, role: 'member' });

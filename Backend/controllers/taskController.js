@@ -1,3 +1,5 @@
+const fs = require('fs/promises');
+const path = require('path');
 const mongoose = require('mongoose');
 const fs = require('fs/promises');
 const path = require('path');
@@ -42,6 +44,70 @@ const populateTaskQuery = (query) =>
     .populate('createdBy', TASK_POPULATE_FIELDS)
     .populate('comments.user', TASK_POPULATE_FIELDS)
     .populate('attachments.uploadedBy', TASK_POPULATE_FIELDS);
+
+const buildTaskAttachmentResponse = (taskId, attachment, req) => {
+  const attachmentObject = attachment?.toObject ? attachment.toObject() : attachment;
+  const publicFileName = path.basename(
+    attachmentObject.filePath || attachmentObject.fileName || ''
+  );
+
+  return {
+    ...attachmentObject,
+    fileUrl:
+      attachmentObject.fileUrl ||
+      `${req.protocol}://${req.get('host')}/uploads/tasks/${encodeURIComponent(
+        taskId.toString()
+      )}/${encodeURIComponent(publicFileName)}`,
+  };
+};
+
+const normalizeTaskForResponse = (task, req) => {
+  if (!task) {
+    return null;
+  }
+
+  const taskObject = task.toObject ? task.toObject({ virtuals: true, getters: true }) : task;
+
+  return {
+    ...taskObject,
+    attachments: (taskObject.attachments || []).map((attachment) =>
+      buildTaskAttachmentResponse(taskObject._id || task.id, attachment, req)
+    ),
+  };
+};
+
+const isProjectMember = (project, userId) => {
+  if (!project || !userId) {
+    return false;
+  }
+
+  return (
+    project.createdBy?.toString() === userId ||
+    (project.members || []).some(
+      (member) => member.user && member.user.toString() === userId
+    )
+  );
+};
+
+const getTaskWithProjectAccess = async (taskId, userId) => {
+  if (!mongoose.Types.ObjectId.isValid(taskId)) {
+    throw new AppError('Invalid task id.', 400);
+  }
+
+  const task = await Task.findById(taskId);
+
+  if (!task) {
+    throw new AppError('Task not found.', 404);
+  }
+
+  const project = await Project.findById(task.project);
+
+  if (!project || !isProjectMember(project, userId)) {
+    throw new AppError('You do not have access to this task.', 403);
+  }
+
+  return { task, project };
+};
 
 const ensureProjectExistsAndReadable = async (projectId, userId) => {
   if (!mongoose.Types.ObjectId.isValid(projectId)) {
@@ -136,7 +202,7 @@ exports.createTask = catchAsync(async (req, res, next) => {
   res.status(201).json({
     status: 'success',
     data: {
-      task: populatedTask,
+      task: normalizeTaskForResponse(populatedTask, req),
     },
   });
 });
@@ -174,7 +240,7 @@ exports.getAllTasks = catchAsync(async (req, res, next) => {
     status: 'success',
     results: tasks.length,
     data: {
-      tasks,
+      tasks: tasks.map((task) => normalizeTaskForResponse(task, req)),
     },
   });
 });
@@ -201,7 +267,7 @@ exports.getTask = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     data: {
-      task,
+      task: normalizeTaskForResponse(task, req),
     },
   });
 });
@@ -264,7 +330,87 @@ exports.updateTask = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     data: {
-      task: populatedTask,
+      task: normalizeTaskForResponse(populatedTask, req),
+    },
+  });
+});
+
+exports.addTaskComment = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const commentText = String(req.body?.text || '').trim();
+
+  if (!commentText) {
+    return next(new AppError('Comment text is required.', 400));
+  }
+
+  const { task } = await getTaskWithProjectAccess(id, req.user.id);
+
+  task.comments.push({
+    user: req.user.id,
+    text: commentText,
+    createdAt: new Date(),
+  });
+
+  await task.save();
+
+  const populatedTask = await populateTaskQuery(Task.findById(task._id));
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      task: normalizeTaskForResponse(populatedTask, req),
+    },
+  });
+});
+
+exports.addTaskAttachments = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+  const attachments = Array.isArray(req.body.attachments) ? req.body.attachments : [];
+
+  if (attachments.length === 0) {
+    return next(new AppError('At least one attachment is required.', 400));
+  }
+
+  const { task } = await getTaskWithProjectAccess(id, req.user.id);
+  const taskDirectory = path.join(TASK_ATTACHMENTS_ROOT, task._id.toString());
+  await fs.mkdir(taskDirectory, { recursive: true });
+
+  for (const attachment of attachments) {
+    const fileName = String(attachment?.fileName || '').trim();
+    const base64Content = String(attachment?.content || '');
+
+    if (!fileName || !base64Content) {
+      return next(new AppError('Each attachment must include a file name and content.', 400));
+    }
+
+    const safeFileName = path.basename(fileName).replace(/[^\w.\-() ]+/g, '_');
+    const storedFileName = `${Date.now()}-${safeFileName}`;
+    const absoluteFilePath = path.join(taskDirectory, storedFileName);
+    const fileBuffer = Buffer.from(base64Content, 'base64');
+
+    await fs.writeFile(absoluteFilePath, fileBuffer);
+
+    task.attachments.push({
+      fileName,
+      filePath: absoluteFilePath,
+      fileUrl: `${req.protocol}://${req.get('host')}/uploads/tasks/${encodeURIComponent(
+        task._id.toString()
+      )}/${encodeURIComponent(storedFileName)}`,
+      mimeType: attachment?.mimeType || 'application/octet-stream',
+      size: Number(attachment?.size) || fileBuffer.length,
+      uploadedBy: req.user.id,
+      uploadedAt: new Date(),
+    });
+  }
+
+  await task.save();
+
+  const populatedTask = await populateTaskQuery(Task.findById(task._id));
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      task: normalizeTaskForResponse(populatedTask, req),
     },
   });
 });

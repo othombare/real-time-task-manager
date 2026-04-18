@@ -2,6 +2,7 @@ import { BellIcon, CalendarIcon, CheckCheckIcon, Clock3Icon, SparklesIcon } from
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useProjects } from "../Projects/useProjects";
+import { isTaskAssignedToUser } from "../../utils/taskAdapters";
 
 const getUserInitials = (name) =>
   (name || "OJ")
@@ -19,7 +20,12 @@ function Notifications() {
   const notifications = projects.flatMap((project) =>
     project.board.flatMap((column) =>
       column.tasks
-        .filter((task) => task.assignee.includes(userInitials))
+        .filter((task) =>
+          isTaskAssignedToUser(task, {
+            userId: profile?._id || null,
+            initials: userInitials,
+          })
+        )
         .map((task) => ({
           id: `${project.slug}-${column.title}-${task.id}`,
           title: task.title,

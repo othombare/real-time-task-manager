@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildMemberDirectory,
   cloneProjectBoard,
@@ -6,6 +6,7 @@ import {
   createProjectSlug,
   generateJoinCode,
   getInitials,
+  hasProjectAccess,
   projectBoardTemplate,
   seedProjects,
 } from "./projectData";
@@ -57,7 +58,10 @@ const readStoredProjects = () => {
 const buildProjectKey = (project) =>
   String(project?._id || project?.id || project?.projectCode || project?.joinCode || project?.slug || "");
 
+const getProjectRoomId = (project) => String(project?._id || project?.id || "").trim();
+
 const normalizeComparableValue = (value = "") => String(value).trim().toLowerCase();
+const normalizeProjectCode = (value = "") => String(value).trim().toUpperCase();
 
 const normalizeAttachmentEntry = (attachment, index = 0) => {
   if (typeof attachment === "string") {
@@ -273,6 +277,7 @@ const syncCurrentUserMemberProfiles = (memberProfiles = [], currentUser, project
 
 const normalizeProject = (project, currentUser = null, rawTasks = []) => {
   const title = project?.title || project?.name || "Untitled Project";
+  const slug = project?.slug || createProjectSlug(title) || `project-${Date.now()}`;
   const memberEntries = Array.isArray(project?.members)
     ? project.members
         .map(getMemberIdentity)
@@ -359,7 +364,7 @@ const normalizeProject = (project, currentUser = null, rawTasks = []) => {
     _id: project?._id || project?.id,
     name: project?.name || title,
     title,
-    slug: project?.slug || createProjectSlug(title) || `project-${Date.now()}`,
+    slug,
     description: project?.description || "",
     status: project?.status || "Planning",
     stage: project?.stage || "Planning",
@@ -425,13 +430,13 @@ const mergeProjectsWithStoredState = (incomingProjects, currentUser = null, task
         Array.isArray(normalizedProject.attachmentItems)
           ? normalizedProject.attachmentItems
           : storedProject.attachmentItems,
-      attachmentFiles:
-        Array.isArray(normalizedProject.attachmentFiles) && normalizedProject.attachmentFiles.length > 0
-          ? normalizedProject.attachmentFiles
-          : storedProject.attachmentFiles,
-      board: cloneProjectBoard(storedProject.board || normalizedProject.board),
-    };
-  });
+       attachmentFiles:
+         Array.isArray(normalizedProject.attachmentFiles) && normalizedProject.attachmentFiles.length > 0
+           ? normalizedProject.attachmentFiles
+           : storedProject.attachmentFiles,
+       board: cloneProjectBoard(normalizedProject.board || storedProject.board),
+     };
+   });
 };
 
 const INVALID_PROJECT_CODE_MESSAGE = "No project with this ID exists, please try again.";
@@ -456,20 +461,78 @@ const mergeProjectIntoState = (currentProjects, nextProject) =>
       : project
   );
 
+const extractProjectsPayload = (response) =>
+  Array.isArray(response?.data?.data?.projects)
+    ? response.data.data.projects
+    : Array.isArray(response?.data?.data)
+      ? response.data.data
+      : Array.isArray(response?.data)
+        ? response.data
+        : [];
 
+const extractTasksPayload = (response) =>
+  Array.isArray(response?.data?.data?.tasks)
+    ? response.data.data.tasks
+    : Array.isArray(response?.data?.data)
+      ? response.data.data
+      : Array.isArray(response?.data)
+        ? response.data
+        : [];
 
-const canManageTask = (task, actor) => {
-  if (!task || !actor) {
+const extractTaskPayload = (response) =>
+  response?.data?.data?.task || response?.data?.task || response?.data || null;
+
+const matchesProjectIdentifier = (project, projectIdentifier) => {
+  const targetIdentifier = String(projectIdentifier || "").trim();
+
+  if (!targetIdentifier) {
     return false;
   }
 
-  if (actor.userId && task.createdByUserId && actor.userId === task.createdByUserId) {
-    return true;
-  }
+  return [project?._id, project?.id, project?.slug, project?.projectCode, project?.joinCode].some(
+    (value) => String(value || "").trim() === targetIdentifier
+  );
+};
 
-  return (
-    Boolean(actor.name) &&
-    normalizeComparableValue(actor.name) === normalizeComparableValue(task.createdBy)
+const syncTaskBoardForProject = (currentProjects, projectIdentifier, task, options = {}) =>
+  currentProjects.map((project) => {
+    if (!matchesProjectIdentifier(project, projectIdentifier)) {
+      return project;
+    }
+
+    return {
+      ...project,
+      board: options.remove
+        ? removeTaskFromBoard(project.board, task?.id || task?._id)
+        : upsertTaskInBoard(project.board, task, options),
+    };
+  });
+
+const serializeFilesForUpload = async (files = []) => {
+  const normalizedFiles = Array.from(files).filter(Boolean);
+
+  return Promise.all(
+    normalizedFiles.map(
+      (file) =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = () => {
+            const result = String(reader.result || "");
+            const [, base64Content = ""] = result.split(",");
+
+            resolve({
+              fileName: file.name,
+              content: base64Content,
+              mimeType: file.type || "application/octet-stream",
+              size: file.size,
+            });
+          };
+
+          reader.onerror = () => reject(new Error(`Unable to read ${file.name}.`));
+          reader.readAsDataURL(file);
+        })
+    )
   );
 };
 
@@ -488,38 +551,9 @@ const canDeleteTask = (task, actor) => {
   );
 };
 
-const serializeFilesForUpload = async (files = []) =>
-  Promise.all(
-    Array.from(files)
-      .filter(Boolean)
-      .map(
-        (file) =>
-          new Promise((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onload = () => {
-              const result = String(reader.result || "");
-              const [, base64Content = ""] = result.split(",");
-
-              resolve({
-                fileName: file.name,
-                content: base64Content,
-                mimeType: file.type || "application/octet-stream",
-                size: file.size,
-              });
-            };
-
-            reader.onerror = () => reject(new Error(`Unable to read ${file.name}.`));
-            reader.readAsDataURL(file);
-          })
-      )
-  );
-
-const extractTaskPayload = (response) =>
-  response?.data?.data?.task || response?.data?.task || response?.data || null;
-
 const ProjectsContext = createContext({
   projects: [],
+  lastSyncedAt: null,
   createProject: () => null,
   addProject: () => null,
   removeProject: () => null,
@@ -544,6 +578,12 @@ export function ProjectsProvider({ children }) {
   const authInitialized = useAppSelector((state) => state.auth.initialized);
   const currentUser = useAppSelector((state) => state.auth.user);
   const [projects, setProjects] = useState(() => readStoredProjects());
+  const projectsRef = useRef(projects);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+
+  useEffect(() => {
+    projectsRef.current = projects;
+  }, [projects]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
@@ -586,11 +626,11 @@ export function ProjectsProvider({ children }) {
       }
 
       console.error("Error fetching projects", error);
-      if (projects.length === 0) {
+      if (projectsRef.current.length === 0) {
         setProjects(cloneProjects(seedProjects));
       }
     }
-  }, [authInitialized, currentUser, projects.length]);
+  }, [authInitialized, currentUser]);
 
   useEffect(() => {
     if (!authInitialized || !currentUser) {
@@ -940,10 +980,24 @@ export function ProjectsProvider({ children }) {
   );
 
   const joinProjectByCode = useCallback((code) => {
-    const normalizedCode = code.trim().toUpperCase();
+    const normalizedCode = normalizeProjectCode(code);
 
     if (!normalizedCode) {
       return Promise.resolve({ success: false, error: "Enter a project code first." });
+    }
+
+    const existingProject = projects.find(
+      (project) =>
+        normalizeProjectCode(project?.joinCode) === normalizedCode ||
+        normalizeProjectCode(project?.projectCode) === normalizedCode
+    );
+
+    if (existingProject) {
+      return Promise.resolve({
+        success: true,
+        projectSlug: existingProject.slug,
+        projectTitle: existingProject.title,
+      });
     }
 
     return joinProjectApi(normalizedCode)
@@ -994,9 +1048,9 @@ export function ProjectsProvider({ children }) {
             ? INVALID_PROJECT_CODE_MESSAGE
             : error?.message || INVALID_PROJECT_CODE_MESSAGE,
       }));
-  }, [currentUser]);
+  }, [currentUser, projects]);
 
-  const updateProjectBoard = useCallback((projectSlug, updater, actor = null) => {
+  const updateProjectBoard = useCallback((projectSlug, updater) => {
     let wasUpdated = false;
     let errorMessage = "Project not found.";
 
@@ -1006,12 +1060,10 @@ export function ProjectsProvider({ children }) {
           return project;
         }
 
-        const nextBoard = updater(cloneProjectBoard(project.board), {
-          canManageTask: (task) => canManageTask(task, actor),
-        });
+        const nextBoard = updater(cloneProjectBoard(project.board));
 
         if (nextBoard === null) {
-          errorMessage = "Only the person who added this task can update or delete it.";
+          errorMessage = "Unable to update the task board.";
           return project;
         }
 
@@ -1196,6 +1248,7 @@ export function ProjectsProvider({ children }) {
   const value = useMemo(
     () => ({
       projects,
+      lastSyncedAt,
       createProject,
       addProject,
       removeProject,
@@ -1220,6 +1273,7 @@ export function ProjectsProvider({ children }) {
       fetchProjects,
       joinProjectByCode,
       projects,
+      lastSyncedAt,
       removeProject,
       removeProjectMember,
       addProjectAttachments,

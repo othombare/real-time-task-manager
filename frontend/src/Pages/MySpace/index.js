@@ -1,5 +1,5 @@
-import PerToDo from "./PerToDo";
+import MySpace from "./MySpace";
 
-export default PerToDo;
+export default MySpace;
 export { default as TodoForm } from "./TodoForm";
 export { default as TodoItem } from "./TodoItem";
