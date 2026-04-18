@@ -196,9 +196,52 @@ const getGreetingByTime = () => {
   return "Welcome to Dashboard";
 };
 
+const formatLastSyncedLabel = (value) => {
+  if (!value) {
+    return "Last synced pending";
+  }
+
+  const syncedAt = new Date(value);
+
+  if (Number.isNaN(syncedAt.getTime())) {
+    return "Last synced pending";
+  }
+
+  const elapsedMs = Date.now() - syncedAt.getTime();
+
+  if (elapsedMs < 60_000) {
+    return "Last synced just now";
+  }
+
+  const elapsedMinutes = Math.floor(elapsedMs / 60_000);
+
+  if (elapsedMinutes < 60) {
+    return `Last synced ${elapsedMinutes}m ago`;
+  }
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+
+  if (elapsedHours < 24) {
+    return `Last synced ${elapsedHours}h ago`;
+  }
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+
+  if (elapsedDays < 7) {
+    return `Last synced ${elapsedDays}d ago`;
+  }
+
+  return `Last synced ${new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(syncedAt)}`;
+};
+
 function Home() {
   const { profile } = useCurrentUser();
-  const { projects, updateProjectBoard, updateProjectTask } = useProjects();
+  const { projects, updateProjectBoard, updateProjectTask, lastSyncedAt } = useProjects();
   const personalColumnsStorageKey = getPersonalColumnsStorageKey(profile?._id);
   const firstName = profile?.name?.split(" ")[0] || "there";
   const displayName = profile?.name || "Workspace User";
@@ -274,6 +317,7 @@ function Home() {
       value: String(taskStats.overdue).padStart(2, "0"),
     },
   ];
+  const lastSyncedLabel = formatLastSyncedLabel(lastSyncedAt);
 
   const handleAddTask = async (newTask) => {
     setPersonalColumns((currentColumns) =>
@@ -505,12 +549,12 @@ function Home() {
       <div className="space-y-10">
         <section className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">{greeting}, {firstName}</h1>
-          <p className="text-muted-foreground font-medium flex items-center gap-2">
-            Here&apos;s what&apos;s assigned to you across the workspace.
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold ring-1 ring-primary/20">
-              <ClockIcon size={12} /> Last synced 20m ago
-            </span>
-          </p>
+            <p className="text-muted-foreground font-medium flex items-center gap-2">
+              Here&apos;s what&apos;s assigned to you across the workspace.
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold ring-1 ring-primary/20">
+              <ClockIcon size={12} /> {lastSyncedLabel}
+              </span>
+            </p>
         </section>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

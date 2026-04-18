@@ -3,7 +3,6 @@ import { ClipboardListIcon, SparklesIcon } from "lucide-react";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import TodoForm from "./TodoForm";
 import TodoItem from "./TodoItem";
-import MyNotesPanel from "./MyNotesPanel";
 import { TodoProvider } from "./contexts";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import {
@@ -14,26 +13,20 @@ import {
   updateTodo as updateTodoRequest,
 } from "../../utils/todoApi";
 
-const NOTES_STORAGE_KEY = "taskvue-personal-notes";
-
 const filterOptions = [
   { id: "all", label: "All" },
   { id: "active", label: "Active" },
   { id: "completed", label: "Completed" },
 ];
 
-const getStorageKey = (prefix, userId = "anonymous") => `${prefix}:${userId || "anonymous"}`;
-
 function MySpace() {
-  const { profile, token, initialized } = useCurrentUser();
+  const { token, initialized } = useCurrentUser();
   const [todos, setTodos] = useState([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [processingTodoId, setProcessingTodoId] = useState(null);
   const [error, setError] = useState("");
-  const notesStorageKey = getStorageKey(NOTES_STORAGE_KEY, profile?._id);
-  const displayName = profile?.name || "Workspace User";
 
   useEffect(() => {
     if (!initialized) {
@@ -224,9 +217,9 @@ function MySpace() {
           <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="space-y-2">
               <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">Focus</p>
-              <h1 className="text-3xl font-bold tracking-tight">My Space</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Personal Todo</h1>
               <p className="text-sm text-muted-foreground">
-                Keep your tasks and notes close to the workspace without losing focus.
+                Keep your tasks close to the workspace without losing focus.
               </p>
             </div>
 
@@ -243,7 +236,7 @@ function MySpace() {
             </div>
           </section>
 
-          <section className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
+          <section className="space-y-5">
             <div className="space-y-5">
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-start gap-3">
@@ -266,7 +259,7 @@ function MySpace() {
               <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold">My Space list</h2>
+                    <h2 className="text-lg font-semibold">Personal todo list</h2>
                     <p className="text-sm text-muted-foreground">
                       Review, complete, and edit items in one place.
                     </p>
@@ -327,8 +320,6 @@ function MySpace() {
                 </div>
               </div>
             </div>
-
-            <MyNotesPanel storageKey={notesStorageKey} ownerName={displayName} />
           </section>
         </div>
       </DashboardLayout>

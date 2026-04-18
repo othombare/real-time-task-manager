@@ -608,6 +608,7 @@ const canDeleteTask = (task, actor) => {
 
 const ProjectsContext = createContext({
   projects: [],
+  lastSyncedAt: null,
   createProject: () => null,
   addProject: () => null,
   removeProject: () => null,
@@ -633,6 +634,7 @@ export function ProjectsProvider({ children }) {
   const currentUser = useAppSelector((state) => state.auth.user);
   const [projects, setProjects] = useState(() => readStoredProjects());
   const projectsRef = useRef(projects);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
 
   useEffect(() => {
     projectsRef.current = projects;
@@ -660,6 +662,7 @@ export function ProjectsProvider({ children }) {
       const tasksByProject = groupTasksByProject(nextTasks);
 
       setProjects(mergeProjectsWithStoredState(nextProjects, currentUser, tasksByProject));
+      setLastSyncedAt(new Date().toISOString());
     } catch (error) {
       if (error?.response?.status === 401) {
         return;
@@ -1264,6 +1267,7 @@ export function ProjectsProvider({ children }) {
   const value = useMemo(
     () => ({
       projects,
+      lastSyncedAt,
       createProject,
       addProject,
       removeProject,
@@ -1288,6 +1292,7 @@ export function ProjectsProvider({ children }) {
       fetchProjects,
       joinProjectByCode,
       projects,
+      lastSyncedAt,
       removeProject,
       removeProjectMember,
       addProjectAttachments,
