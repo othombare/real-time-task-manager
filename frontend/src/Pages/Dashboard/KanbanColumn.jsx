@@ -1,4 +1,4 @@
-import { motion } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
 import { MoreHorizontalIcon, PlusIcon } from "lucide-react"
 import { Draggable } from "react-beautiful-dnd"
 import { TaskCard } from "./TaskCard"
@@ -13,17 +13,19 @@ export function KanbanColumn({
   onAddTask,
   onUpdateTask,
   onDeleteTask,
+  onAddTaskComment,
+  onAddTaskAttachments,
   currentUserName,
   currentUserId,
 }) {
   return (
-    <div className="flex flex-col gap-4 kanban-column flex-1 min-w-[300px]">
+    <div className="flex min-w-[300px] flex-1 flex-col gap-4 kanban-column">
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2.5">
-          <div className={cn("w-1.5 h-6 rounded-full", color)} />
-          <h3 className="text-sm font-bold tracking-tight uppercase flex items-center gap-2">
+          <div className={cn("h-6 w-1.5 rounded-full", color)} />
+          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-tight">
             {title}
-            <span className="text-xs font-semibold px-2 py-0.5 bg-muted rounded-full text-muted-foreground">
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
               {tasks.length}
             </span>
           </h3>
@@ -32,11 +34,11 @@ export function KanbanColumn({
           <button
             type="button"
             onClick={() => onAddTask?.(title)}
-            className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground transition-colors group"
+            className="group rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted"
           >
             <PlusIcon size={16} className="group-hover:text-primary" />
           </button>
-          <button className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground transition-colors group">
+          <button className="group rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted">
             <MoreHorizontalIcon size={16} />
           </button>
         </div>
@@ -53,15 +55,15 @@ export function KanbanColumn({
               snapshot.isDraggingOver && "bg-primary/5"
             )}
           >
-<<<<<<< Updated upstream
             <AnimatePresence mode="popLayout">
               {tasks.map((task, index) => (
                 <Draggable key={task.id} draggableId={String(task.id)} index={index}>
                   {(dragProvided, dragSnapshot) => (
-                    <div
+                    <motion.div
                       ref={dragProvided.innerRef}
                       {...dragProvided.draggableProps}
                       {...dragProvided.dragHandleProps}
+                      layout
                       className={cn(
                         "rounded-xl",
                         dragSnapshot.isDragging && "rotate-1 shadow-lg"
@@ -72,45 +74,25 @@ export function KanbanColumn({
                         status={task.status || title}
                         statusOptions={["To Do", "In Progress", "In Review", "Done"]}
                         onUpdateTask={onUpdateTask}
+                        onAddComment={
+                          onAddTaskComment && task.projectSlug
+                            ? (taskId, text) => onAddTaskComment(taskId, text, task.projectSlug)
+                            : undefined
+                        }
+                        onAddAttachments={
+                          onAddTaskAttachments && task.projectSlug
+                            ? (taskId, files) => onAddTaskAttachments(taskId, files, task.projectSlug)
+                            : undefined
+                        }
                         onDeleteTask={onDeleteTask}
                         currentUserName={currentUserName}
                         currentUserId={currentUserId}
                       />
-                    </div>
+                    </motion.div>
                   )}
                 </Draggable>
               ))}
             </AnimatePresence>
-=======
-            {tasks.map((task, index) => (
-              <Draggable key={task.id} draggableId={String(task.id)} index={index}>
-                {(dragProvided, dragSnapshot) => (
-                  <motion.div
-                    ref={dragProvided.innerRef}
-                    {...dragProvided.draggableProps}
-                    {...dragProvided.dragHandleProps}
-                    layout
-                    className={cn(
-                      "rounded-xl",
-                      dragSnapshot.isDragging && "rotate-1 shadow-lg"
-                    )}
-                  >
-                    <TaskCard
-                      {...task}
-                      status={task.status || title}
-                      statusOptions={["To Do", "In Progress", "In Review", "Done"]}
-                      onUpdateTask={onUpdateTask}
-                      onAddComment={onAddTaskComment}
-                      onAddAttachments={onAddTaskAttachments}
-                      onDeleteTask={onDeleteTask}
-                      currentUserName={currentUserName}
-                      currentUserId={currentUserId}
-                    />
-                  </motion.div>
-                )}
-              </Draggable>
-            ))}
->>>>>>> Stashed changes
 
             {provided.placeholder}
 

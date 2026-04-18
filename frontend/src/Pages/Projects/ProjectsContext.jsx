@@ -18,8 +18,6 @@ import {
   joinProject as joinProjectApi,
   removeProjectMember as removeProjectMemberApi,
 } from "../../utils/projectApi";
-<<<<<<< Updated upstream
-=======
 import {
   addTaskAttachments as addTaskAttachmentsApi,
   addTaskComment as addTaskCommentApi,
@@ -37,7 +35,6 @@ import {
   upsertTaskInBoard,
 } from "../../utils/taskAdapters";
 import socket from "../../lib/socket";
->>>>>>> Stashed changes
 import { useAppSelector } from "../../store/hooks";
 
 const STORAGE_KEY = "taskvue-projects";
@@ -274,7 +271,7 @@ const syncCurrentUserMemberProfiles = (memberProfiles = [], currentUser, project
   });
 };
 
-const normalizeProject = (project, currentUser = null) => {
+const normalizeProject = (project, currentUser = null, boardOverride = null) => {
   const title = project?.title || project?.name || "Untitled Project";
   const memberEntries = Array.isArray(project?.members)
     ? project.members
@@ -335,7 +332,7 @@ const normalizeProject = (project, currentUser = null) => {
     currentUser,
     title
   );
-  const board = cloneProjectBoard(project?.board).map((column) => ({
+  const board = cloneProjectBoard(boardOverride || project?.board).map((column) => ({
     ...column,
     tasks: (column.tasks || []).map((task) => ({
       ...task,
@@ -374,19 +371,27 @@ const normalizeProject = (project, currentUser = null) => {
   };
 };
 
-const mergeProjectsWithStoredState = (incomingProjects, currentUser = null) => {
+const mergeProjectsWithStoredState = (incomingProjects, currentUser = null, tasksByProject = new Map()) => {
   const storedProjects = readStoredProjects();
   const storedProjectMap = new Map(
     storedProjects.map((project) => [buildProjectKey(project), normalizeProject(project, currentUser)])
   );
 
   return incomingProjects.map((project) => {
-    const normalizedProject = normalizeProject(project, currentUser);
+    const baseProject = normalizeProject(project, currentUser);
+    const projectTasks = tasksByProject.get(String(baseProject._id || baseProject.id || "")) || [];
+    const taskBoard =
+      projectTasks.length > 0 ? buildProjectBoardFromTasks(projectTasks, baseProject) : null;
+    const normalizedProject = taskBoard
+      ? normalizeProject(project, currentUser, taskBoard)
+      : baseProject;
     const storedProject = storedProjectMap.get(buildProjectKey(normalizedProject));
 
     if (!storedProject) {
       return normalizedProject;
     }
+
+    const storedBoard = cloneProjectBoard(storedProject.board || normalizedProject.board);
 
     return {
       ...normalizedProject,
@@ -417,7 +422,7 @@ const mergeProjectsWithStoredState = (incomingProjects, currentUser = null) => {
         Array.isArray(normalizedProject.attachmentFiles) && normalizedProject.attachmentFiles.length > 0
           ? normalizedProject.attachmentFiles
           : storedProject.attachmentFiles,
-      board: cloneProjectBoard(storedProject.board || normalizedProject.board),
+      board: taskBoard || storedBoard,
     };
   });
 };
@@ -444,10 +449,29 @@ const mergeProjectIntoState = (currentProjects, nextProject) =>
       : project
   );
 
-<<<<<<< Updated upstream
-=======
+const matchesProjectIdentifier = (project, identifier) =>
+  [project?._id, project?.id, project?.slug]
+    .filter(Boolean)
+    .some((value) => String(value) === String(identifier || ""));
+
 const matchesSocketProjectId = (project, projectId) =>
   String(project?._id || project?.id || "") === String(projectId || "");
+
+const syncTaskBoardForProject = (currentProjects, projectIdentifier, task, { remove = false } = {}) =>
+  currentProjects.map((project) => {
+    if (!matchesProjectIdentifier(project, projectIdentifier)) {
+      return project;
+    }
+
+    return {
+      ...project,
+      board: remove
+        ? removeTaskFromBoard(project.board, task?.id || task?._id)
+        : upsertTaskInBoard(project.board, task, {
+            preferredColumnTitle: task?.status,
+          }),
+    };
+  });
 
 const applySocketTaskChangeToProject = (project, payload) => {
   if (!project) {
@@ -588,9 +612,6 @@ const serializeFilesForUpload = async (files = []) => {
   );
 };
 
->>>>>>> Stashed changes
-
-
 const canManageTask = (task, actor) => {
   if (!task || !actor) {
     return false;
@@ -617,6 +638,9 @@ const ProjectsContext = createContext({
   addProjectMember: () => ({ success: false }),
   removeProjectMember: () => ({ success: false }),
   addProjectAttachments: () => ({ success: false }),
+  createProjectTask: () => ({ success: false }),
+  addProjectTaskComment: () => ({ success: false }),
+  addProjectTaskAttachments: () => ({ success: false }),
   updateProjectBoard: () => {},
   updateProjectTask: () => {},
   deleteProjectTask: () => ({ success: false }),
@@ -642,15 +666,17 @@ export function ProjectsProvider({ children }) {
 
     try {
       const response = await getProjectsApi();
-      const nextProjects = Array.isArray(response?.data?.data?.projects)
-        ? response.data.data.projects
-        : Array.isArray(response?.data?.data)
-          ? response.data.data
-          : Array.isArray(response?.data)
-            ? response.data
-            : [];
+      const nextProjects = extractProjectsPayload(response);
 
-      setProjects(mergeProjectsWithStoredState(nextProjects, currentUser));
+      let groupedTasks = new Map();
+      try {
+        const tasksResponse = await getTasksApi();
+        groupedTasks = groupTasksByProject(extractTasksPayload(tasksResponse));
+      } catch (taskError) {
+        console.error("Error fetching tasks", taskError);
+      }
+
+      setProjects(mergeProjectsWithStoredState(nextProjects, currentUser, groupedTasks));
     } catch (error) {
       if (error?.response?.status === 401) {
         return;
@@ -752,20 +778,21 @@ export function ProjectsProvider({ children }) {
           response?.data?.data?.project ||
           response?.data?.project ||
           response?.data;
-          const persistedProject = normalizeProject({
-            ...backendProject,
+        const persistedProject = normalizeProject(
+          {
+            ...(backendProject || {}),
             slug: candidateSlug,
             status: "Planning",
-          stage: stage || "Planning",
-          owner: owner || backendProject?.createdBy?.name || "Workspace",
-          admin: admin || backendProject?.createdBy?.name || owner || "Workspace",
-          joinCode: backendProject?.projectCode || joinCode || generateJoinCode(title),
-          projectCode: backendProject?.projectCode || joinCode || generateJoinCode(title),
-          members: backendProject?.members || uniqueMembers,
-          memberDirectory:
-            Object.keys(memberDirectory).length > 0
-              ? memberDirectory
-              : buildMemberDirectory(uniqueMembers),
+            stage: stage || "Planning",
+            owner: owner || backendProject?.createdBy?.name || "Workspace",
+            admin: admin || backendProject?.createdBy?.name || owner || "Workspace",
+            joinCode: backendProject?.projectCode || joinCode || generateJoinCode(title),
+            projectCode: backendProject?.projectCode || joinCode || generateJoinCode(title),
+            members: backendProject?.members || uniqueMembers,
+            memberDirectory:
+              Object.keys(memberDirectory).length > 0
+                ? memberDirectory
+                : buildMemberDirectory(uniqueMembers),
             attachments,
             attachmentItems:
               attachmentItems.length > 0
@@ -773,7 +800,9 @@ export function ProjectsProvider({ children }) {
                 : attachmentFiles.map((fileName, index) => normalizeAttachmentEntry(fileName, index)),
             attachmentFiles,
             board: cloneProjectBoard(projectBoardTemplate),
-          }, currentUser);
+          },
+          currentUser
+        );
 
         setProjects((currentProjects) => [persistedProject, ...currentProjects]);
 
@@ -919,6 +948,214 @@ export function ProjectsProvider({ children }) {
     }
   }, [currentUser]);
 
+  const createProjectTask = useCallback(
+    async (projectSlug, taskData) => {
+      const project = projects.find((item) => matchesProjectIdentifier(item, projectSlug));
+
+      if (!project) {
+        return { success: false, error: "Project not found." };
+      }
+
+      try {
+        const response = await createTaskApi(
+          buildTaskCreatePayload(taskData, project._id || project.id)
+        );
+        let backendTask = extractTaskPayload(response);
+        const selectedFiles = Array.isArray(taskData?.files) ? taskData.files : [];
+
+        if (selectedFiles.length > 0 && backendTask?._id) {
+          const attachments = await serializeFilesForUpload(selectedFiles);
+          const attachmentsResponse = await addTaskAttachmentsApi(
+            backendTask._id || backendTask.id,
+            attachments
+          );
+          backendTask = extractTaskPayload(attachmentsResponse) || backendTask;
+        }
+
+        const normalizedTask = normalizeApiTask(backendTask, project);
+
+        setProjects((currentProjects) =>
+          syncTaskBoardForProject(currentProjects, projectSlug, normalizedTask)
+        );
+
+        return { success: true, task: normalizedTask };
+      } catch (error) {
+        console.error("Error creating project task", error);
+        return {
+          success: false,
+          error: error.message || "Unable to create task.",
+        };
+      }
+    },
+    [projects]
+  );
+
+  const addProjectTaskComment = useCallback(
+    async (projectSlug, taskId, text) => {
+      const project = projects.find((item) => matchesProjectIdentifier(item, projectSlug));
+
+      if (!project) {
+        return { success: false, error: "Project not found." };
+      }
+
+      if (!String(text || "").trim()) {
+        return { success: false, error: "Comment text is required." };
+      }
+
+      try {
+        const response = await addTaskCommentApi(taskId, text);
+        const backendTask = extractTaskPayload(response);
+        const normalizedTask = normalizeApiTask(backendTask, project);
+
+        setProjects((currentProjects) =>
+          syncTaskBoardForProject(currentProjects, projectSlug, normalizedTask)
+        );
+
+        return { success: true, task: normalizedTask };
+      } catch (error) {
+        console.error("Error adding task comment", error);
+        return {
+          success: false,
+          error: error.message || "Unable to add task comment.",
+        };
+      }
+    },
+    [projects]
+  );
+
+  const addProjectTaskAttachments = useCallback(
+    async (projectSlug, taskId, files = []) => {
+      const project = projects.find((item) => matchesProjectIdentifier(item, projectSlug));
+
+      if (!project) {
+        return { success: false, error: "Project not found." };
+      }
+
+      const normalizedFiles = Array.from(files).filter(Boolean);
+
+      if (normalizedFiles.length === 0) {
+        return { success: false, error: "Select at least one attachment first." };
+      }
+
+      try {
+        const attachments = await serializeFilesForUpload(normalizedFiles);
+        const response = await addTaskAttachmentsApi(taskId, attachments);
+        const backendTask = extractTaskPayload(response);
+        const normalizedTask = normalizeApiTask(backendTask, project);
+
+        setProjects((currentProjects) =>
+          syncTaskBoardForProject(currentProjects, projectSlug, normalizedTask)
+        );
+
+        return { success: true, task: normalizedTask, attachments };
+      } catch (error) {
+        console.error("Error adding task attachments", error);
+        return {
+          success: false,
+          error: error.message || "Unable to add task attachments.",
+        };
+      }
+    },
+    [projects]
+  );
+
+  const updateProjectTask = useCallback(
+    async (projectSlug, taskId, updates, actor = null) => {
+      const project = projects.find((item) => matchesProjectIdentifier(item, projectSlug));
+
+      if (!project) {
+        return { success: false, error: "Project not found." };
+      }
+
+      const currentTask = project.board.find((column) =>
+        column.tasks.some((task) => String(task.id) === String(taskId))
+      )?.tasks.find((task) => String(task.id) === String(taskId));
+
+      if (!currentTask) {
+        return { success: false, error: "Task not found." };
+      }
+
+      if (!canManageTask(currentTask, actor)) {
+        return {
+          success: false,
+          error: "Only the person who added this task can update or delete it.",
+        };
+      }
+
+      const payload = buildTaskUpdatePayload(updates);
+
+      if (Object.keys(payload).length === 0) {
+        return { success: true, task: currentTask };
+      }
+
+      try {
+        const response = await updateTaskApi(taskId, payload);
+        const backendTask = extractTaskPayload(response);
+        const normalizedTask = normalizeApiTask(backendTask, project);
+
+        setProjects((currentProjects) =>
+          syncTaskBoardForProject(currentProjects, projectSlug, normalizedTask)
+        );
+
+        return { success: true, task: normalizedTask };
+      } catch (error) {
+        console.error("Error updating task", error);
+        return {
+          success: false,
+          error: error.message || "Unable to update task.",
+        };
+      }
+    },
+    [projects]
+  );
+
+  const deleteProjectTask = useCallback(
+    async (projectSlug, taskId, actor = null) => {
+      const project = projects.find((item) => matchesProjectIdentifier(item, projectSlug));
+
+      if (!project) {
+        return { success: false, error: "Project not found." };
+      }
+
+      const currentTask = project.board.find((column) =>
+        column.tasks.some((task) => String(task.id) === String(taskId))
+      )?.tasks.find((task) => String(task.id) === String(taskId));
+
+      if (!currentTask) {
+        return { success: false, error: "Task not found." };
+      }
+
+      if (!canManageTask(currentTask, actor)) {
+        return {
+          success: false,
+          error: "Only the person who added this task can update or delete it.",
+        };
+      }
+
+      try {
+        await deleteTaskApi(taskId);
+
+        setProjects((currentProjects) =>
+          syncTaskBoardForProject(
+            currentProjects,
+            projectSlug,
+            { id: taskId, _id: taskId },
+            { remove: true }
+          )
+        );
+
+        return { success: true };
+      } catch (error) {
+        console.error("Error deleting task", error);
+        return {
+          success: false,
+          error: error.message || "Unable to delete task.",
+        };
+      }
+    },
+    [projects]
+  );
+
   const joinProjectByCode = useCallback((code) => {
     const normalizedCode = code.trim().toUpperCase();
 
@@ -957,6 +1194,8 @@ export function ProjectsProvider({ children }) {
 
           return [joinedProject, ...currentProjects];
         });
+
+        fetchProjects();
 
         return {
           success: true,
@@ -1008,138 +1247,6 @@ export function ProjectsProvider({ children }) {
       : { success: false, error: errorMessage };
   }, []);
 
-  const updateProjectTask = useCallback((projectSlug, taskId, updates, actor = null) => {
-    let result = { success: false, error: "Project not found." };
-
-    setProjects((currentProjects) =>
-      currentProjects.map((project) => {
-        if (project.slug !== projectSlug) {
-          return project;
-        }
-
-        const currentStatus = project.board.find((column) =>
-          column.tasks.some((task) => task.id === taskId)
-        )?.title;
-        const nextStatus = updates.status || currentStatus;
-
-        if (!currentStatus) {
-          result = { success: false, error: "Task not found." };
-          return project;
-        }
-
-        let taskToUpdate = null;
-        let blockedUpdate = false;
-
-        const columnsWithoutTask = project.board.map((column) => ({
-          ...column,
-          tasks: column.tasks.filter((task) => {
-            if (task.id !== taskId) {
-              return true;
-            }
-
-            if (!canManageTask(task, actor)) {
-              blockedUpdate = true;
-              return true;
-            }
-
-            taskToUpdate = {
-              ...task,
-              ...updates,
-              status: nextStatus,
-            };
-            return false;
-          }),
-        }));
-
-        if (blockedUpdate) {
-          result = {
-            success: false,
-            error: "Only the person who added this task can update or delete it.",
-          };
-          return project;
-        }
-
-        if (!taskToUpdate) {
-          result = { success: false, error: "Task not found." };
-          return project;
-        }
-
-        result = { success: true };
-        return {
-          ...project,
-          board: columnsWithoutTask.map((column) =>
-            column.title === nextStatus
-              ? {
-                  ...column,
-                  tasks: [taskToUpdate, ...column.tasks],
-                }
-              : column
-          ),
-        };
-      })
-    );
-
-    return result;
-  }, []);
-
-  const deleteProjectTask = useCallback((projectSlug, taskId, actor = null) => {
-    let result = { success: false, error: "Project not found." };
-
-    setProjects((currentProjects) =>
-      currentProjects.map((project) => {
-        if (project.slug !== projectSlug) {
-          return project;
-        }
-
-        let taskFound = false;
-        let taskDeleted = false;
-        let blockedDelete = false;
-
-        const nextBoard = project.board.map((column) => ({
-          ...column,
-          tasks: column.tasks.filter((task) => {
-            if (task.id !== taskId) {
-              return true;
-            }
-
-            taskFound = true;
-
-            if (!canManageTask(task, actor)) {
-              blockedDelete = true;
-              return true;
-            }
-
-            taskDeleted = true;
-            return false;
-          }),
-        }));
-
-        if (blockedDelete) {
-          result = {
-            success: false,
-            error: "Only the person who added this task can update or delete it.",
-          };
-          return project;
-        }
-
-        if (!taskFound) {
-          result = { success: false, error: "Task not found." };
-          return project;
-        }
-
-        result = taskDeleted ? { success: true } : { success: false, error: "Task not found." };
-        return taskDeleted
-          ? {
-              ...project,
-              board: nextBoard,
-            }
-          : project;
-      })
-    );
-
-    return result;
-  }, []);
-
   const deleteProjectAttachment = useCallback(async (projectId, attachmentId) => {
     try {
       const response = await deleteProjectAttachmentApi(projectId, attachmentId);
@@ -1173,6 +1280,9 @@ export function ProjectsProvider({ children }) {
       addProjectMember,
       removeProjectMember,
       addProjectAttachments,
+      createProjectTask,
+      addProjectTaskComment,
+      addProjectTaskAttachments,
       updateProjectBoard,
       updateProjectTask,
       deleteProjectTask,
@@ -1188,6 +1298,9 @@ export function ProjectsProvider({ children }) {
       removeProject,
       removeProjectMember,
       addProjectAttachments,
+      createProjectTask,
+      addProjectTaskComment,
+      addProjectTaskAttachments,
       updateProjectBoard,
       updateProjectTask,
       deleteProjectTask,

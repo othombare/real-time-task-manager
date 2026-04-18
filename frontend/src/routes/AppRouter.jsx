@@ -1,8 +1,4 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
 import Home from "../Pages/Dashboard/Home";
 import Login from "../Pages/Auth/Login";
 import Register from "../Pages/Auth/Register";
@@ -177,10 +173,6 @@ const AppRouter = () => {
             </ProtectedRoute>
           }
         />
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
       </Routes>
     </BrowserRouter>
   );

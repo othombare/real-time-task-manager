@@ -7,7 +7,6 @@ import {
   PlusIcon,
   UsersIcon,
   BriefcaseBusinessIcon,
-  PinIcon,
   PaperclipIcon,
 } from "lucide-react";
 import { DragDropContext } from "react-beautiful-dnd";
@@ -15,7 +14,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import Addtask from "../Addtask";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { KanbanColumn } from "../Dashboard/KanbanColumn";
-import { cloneProjectBoard, getInitials, hasProjectAccess, projectBoardTemplate, resolveMemberLabel } from "./projectData";
+import {
+  cloneProjectBoard,
+  getInitials,
+  hasProjectAccess,
+  projectBoardTemplate,
+  resolveMemberLabel,
+} from "./projectData";
 import { useProjects } from "./useProjects";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import useProjectSocketRoom from "../../hooks/useProjectSocketRoom";
@@ -24,12 +29,20 @@ function ProjectBoard() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
   const { profile } = useCurrentUser();
-  const { getProjectBySlug, updateProjectBoard, updateProjectTask, deleteProjectTask } = useProjects();
+  const {
+    getProjectBySlug,
+    createProjectTask,
+    updateProjectTask,
+    deleteProjectTask,
+    addProjectTaskComment,
+    addProjectTaskAttachments,
+    updateProjectBoard,
+  } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
   const currentMemberId = getInitials(displayName);
   const canAccessProject = Boolean(project && hasProjectAccess(project, currentMemberId, displayName));
-  const projectRoomId = canAccessProject ? project._id || project.id : null;
+  const projectRoomId = canAccessProject ? project?._id || project?.id : null;
   const currentActor = useMemo(
     () => ({
       userId: profile?._id || null,
@@ -39,40 +52,33 @@ function ProjectBoard() {
   );
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("To Do");
-<<<<<<< Updated upstream
-  const boardColumns = useMemo(
-    () => (project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)),
-=======
-  const [boardColumns, setBoardColumns] = useState(() =>
-    project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)
-  );
 
   useProjectSocketRoom(projectRoomId);
 
-  useEffect(() => {
-    setBoardColumns(project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate));
+  const boardColumns = useMemo(
+    () => (project ? cloneProjectBoard(project.board) : cloneProjectBoard(projectBoardTemplate)),
+    [project]
+  );
+
+  const assigneeOptions = useMemo(() => {
+    const memberProfiles = Array.isArray(project?.memberProfiles) ? project.memberProfiles : [];
+
+    if (memberProfiles.length > 0) {
+      return memberProfiles
+        .filter((memberProfile) => Boolean(memberProfile?.userId || memberProfile?.id))
+        .map((memberProfile) => ({
+          value: String(memberProfile.userId || memberProfile.id),
+          label: memberProfile.name || resolveMemberLabel(memberProfile.userId || memberProfile.id, project?.memberDirectory),
+        }));
+    }
+
+    return (project?.members ?? []).map((member) => ({
+      value: member,
+      label: resolveMemberLabel(member, project?.memberDirectory),
+    }));
   }, [project]);
 
-  const assigneeOptions = useMemo(
-    () =>
-      (project?.memberProfiles ?? [])
-        .filter((memberProfile) => Boolean(memberProfile?.userId))
-        .map((memberProfile) => ({
-          value: memberProfile.userId,
-          label: memberProfile.name || resolveMemberLabel(memberProfile.id, project?.memberDirectory),
-        })),
->>>>>>> Stashed changes
-    [project]
-  );
-  const assigneeOptions = useMemo(
-    () =>
-      (project?.members ?? []).map((member) => ({
-        value: member,
-        label: resolveMemberLabel(member, project?.memberDirectory),
-      })),
-    [project]
-  );
-  const handleDragEnd = ({ source, destination }) => {
+  const handleDragEnd = async ({ source, destination }) => {
     if (!destination) {
       return;
     }
@@ -84,46 +90,64 @@ function ProjectBoard() {
       return;
     }
 
-    const updateResult = updateProjectBoard(projectSlug, (currentColumns, helpers = {}) => {
-      const nextColumns = currentColumns.map((column) => ({
-        ...column,
-        tasks: [...column.tasks],
-      }));
+    const sourceColumn = boardColumns.find((column) => column.title === source.droppableId);
+    const destinationColumn = boardColumns.find((column) => column.title === destination.droppableId);
+    const movedTask = sourceColumn?.tasks[source.index];
 
-      const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
-      const destinationColumnIndex = nextColumns.findIndex(
-        (column) => column.title === destination.droppableId
-      );
+    if (!sourceColumn || !destinationColumn || !movedTask) {
+      return;
+    }
 
-      if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
-        return currentColumns;
+    if (source.droppableId === destination.droppableId) {
+      const updateResult = updateProjectBoard(projectSlug, (currentColumns, helpers = {}) => {
+        const nextColumns = currentColumns.map((column) => ({
+          ...column,
+          tasks: [...column.tasks],
+        }));
+
+        const sourceColumnIndex = nextColumns.findIndex((column) => column.title === source.droppableId);
+        const destinationColumnIndex = nextColumns.findIndex(
+          (column) => column.title === destination.droppableId
+        );
+
+        if (sourceColumnIndex === -1 || destinationColumnIndex === -1) {
+          return currentColumns;
+        }
+
+        const sourceColumnCopy = nextColumns[sourceColumnIndex];
+        const destinationColumnCopy = nextColumns[destinationColumnIndex];
+        const [reorderedTask] = sourceColumnCopy.tasks.splice(source.index, 1);
+
+        if (!reorderedTask) {
+          return currentColumns;
+        }
+
+        if (!helpers.canManageTask?.(reorderedTask)) {
+          return null;
+        }
+
+        destinationColumnCopy.tasks.splice(destination.index, 0, reorderedTask);
+        return nextColumns;
+      }, currentActor);
+
+      if (!updateResult?.success && updateResult?.error) {
+        window.alert(updateResult.error);
       }
 
-      const sourceColumn = nextColumns[sourceColumnIndex];
-      const destinationColumn = nextColumns[destinationColumnIndex];
-      const [movedTask] = sourceColumn.tasks.splice(source.index, 1);
+      return;
+    }
 
-      if (!movedTask) {
-        return currentColumns;
-      }
-
-      if (!helpers.canManageTask?.(movedTask)) {
-        return null;
-      }
-
-      destinationColumn.tasks.splice(destination.index, 0, {
-        ...movedTask,
-        status: destinationColumn.title,
-      });
-
-      return nextColumns;
-    }, currentActor);
+    const updateResult = await updateProjectTask(
+      projectSlug,
+      movedTask.id,
+      { status: destinationColumn.title },
+      currentActor
+    );
 
     if (!updateResult?.success && updateResult?.error) {
       window.alert(updateResult.error);
     }
   };
-
 
   const boardStats = useMemo(() => {
     const allTasks = boardColumns.flatMap((column) => column.tasks);
@@ -136,26 +160,12 @@ function ProjectBoard() {
     };
   }, [boardColumns]);
 
-  const handleAddTask = (newTask) => {
-    updateProjectBoard(projectSlug, (currentColumns) =>
-      currentColumns.map((column) =>
-        column.title === newTask.status
-          ? {
-              ...column,
-              tasks: [
-                {
-                  id: Date.now(),
-                  ...newTask,
-                  status: newTask.status,
-                  createdBy: newTask.createdBy || profile?.name || "Workspace",
-                  createdByUserId: newTask.createdByUserId || profile?._id || null,
-                },
-                ...column.tasks,
-              ],
-            }
-          : column
-      )
-    );
+  const handleAddTask = async (newTask) => {
+    const result = await createProjectTask(projectSlug, newTask, currentActor);
+
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
+    }
   };
 
   const openAddTaskModal = (status = "To Do") => {
@@ -163,23 +173,22 @@ function ProjectBoard() {
     setIsAddTaskOpen(true);
   };
 
-  const handleUpdateTask = (taskId, updates) => {
-    const result = updateProjectTask(projectSlug, taskId, updates, currentActor);
+  const handleUpdateTask = async (taskId, updates) => {
+    const result = await updateProjectTask(projectSlug, taskId, updates, currentActor);
+
     if (!result?.success && result?.error) {
       window.alert(result.error);
     }
   };
 
-  const handleDeleteTask = (taskId) => {
-    const result = deleteProjectTask(projectSlug, taskId, currentActor);
+  const handleDeleteTask = async (taskId) => {
+    const result = await deleteProjectTask(projectSlug, taskId, currentActor);
+
     if (!result?.success && result?.error) {
       window.alert(result.error);
     }
   };
 
-<<<<<<< Updated upstream
-  if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
-=======
   const handleAddTaskComment = async (taskId, text) => {
     const result = await addProjectTaskComment(projectSlug, taskId, text);
 
@@ -200,8 +209,7 @@ function ProjectBoard() {
     return result;
   };
 
-  if (!canAccessProject) {
->>>>>>> Stashed changes
+  if (!project || !canAccessProject) {
     return (
       <DashboardLayout>
         <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">
@@ -240,9 +248,7 @@ function ProjectBoard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-
-
-          <button
+            <button
               type="button"
               onClick={() => navigate(`/projects/${project.slug}/attachments`)}
               className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-muted"
@@ -250,7 +256,6 @@ function ProjectBoard() {
               <PaperclipIcon size={16} />
               View Attachments
             </button>
-
 
             <button
               type="button"
@@ -327,7 +332,6 @@ function ProjectBoard() {
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold tracking-tight">Project Board</h2>
-                  
                 </div>
               </div>
 
@@ -341,6 +345,8 @@ function ProjectBoard() {
                       onAddTask={openAddTaskModal}
                       onUpdateTask={handleUpdateTask}
                       onDeleteTask={handleDeleteTask}
+                      onAddTaskComment={handleAddTaskComment}
+                      onAddTaskAttachments={handleAddTaskAttachments}
                       currentUserName={displayName}
                       currentUserId={profile?._id || null}
                     />

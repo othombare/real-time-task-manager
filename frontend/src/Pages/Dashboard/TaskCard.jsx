@@ -38,6 +38,8 @@ export function TaskCard({
   attachmentFiles = [],
   projectName,
   onUpdateTask,
+  onAddComment,
+  onAddAttachments,
   onDeleteTask,
   currentUserName,
   currentUserId,
@@ -64,32 +66,46 @@ export function TaskCard({
     setIsOpen(true)
   }
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     const nextComment = commentDraft.trim()
 
-    if (!nextComment || !onUpdateTask || !canManageTask) {
+    if (!nextComment || (!onAddComment && !onUpdateTask) || !canManageTask) {
       return
     }
 
-    onUpdateTask(id, {
-      comments: commentCount + 1,
-      commentsList: [...commentsList, nextComment],
-    })
+    const result = onAddComment
+      ? await onAddComment(id, nextComment)
+      : onUpdateTask(id, {
+          comments: commentCount + 1,
+          commentsList: [...commentsList, nextComment],
+        })
+
+    if (result?.success === false) {
+      return
+    }
+
     setCommentDraft("")
     setActiveSection("comments")
   }
 
-  const handleAttachmentChange = (event) => {
-    const selectedNames = Array.from(event.target.files || []).map((file) => file.name)
+  const handleAttachmentChange = async (event) => {
+    const selectedFiles = Array.from(event.target.files || [])
+    const selectedNames = selectedFiles.map((file) => file.name)
 
-    if (selectedNames.length === 0 || !onUpdateTask || !canManageTask) {
+    if (selectedNames.length === 0 || (!onAddAttachments && !onUpdateTask) || !canManageTask) {
       return
     }
 
-    onUpdateTask(id, {
-      attachments: attachmentCount + selectedNames.length,
-      attachmentFiles: [...attachmentFiles, ...selectedNames],
-    })
+    const result = onAddAttachments
+      ? await onAddAttachments(id, selectedFiles)
+      : onUpdateTask(id, {
+          attachments: attachmentCount + selectedNames.length,
+          attachmentFiles: [...attachmentFiles, ...selectedNames],
+        })
+
+    if (result?.success === false) {
+      return
+    }
 
     event.target.value = ""
     setActiveSection("attachments")

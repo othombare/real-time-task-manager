@@ -20,9 +20,7 @@ const useProjectSocketRoom = (projectId) => {
 
     return () => {
       socket.off("connect", joinRoom);
-      if (socket.connected) {
-        socket.emit("leaveProject", roomId);
-      }
+      socket.emit("leaveProject", roomId);
     };
   }, [projectId]);
 };

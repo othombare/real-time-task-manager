@@ -270,9 +270,6 @@ exports.updateTask = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     data: {
-<<<<<<< Updated upstream
-      task: populatedTask,
-=======
       task: normalizeTaskForResponse(populatedTask, req),
     },
   });
@@ -356,7 +353,6 @@ exports.addTaskAttachments = catchAsync(async (req, res, next) => {
     status: 'success',
     data: {
       task: normalizeTaskForResponse(populatedTask, req),
->>>>>>> Stashed changes
     },
   });
 });

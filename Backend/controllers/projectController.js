@@ -216,6 +216,7 @@ exports.joinProject = catchAsync(async (req, res, next) => {
 
   if (global.io) {
     global.io.emit('project:membershipChanged', {
+      action: 'joined',
       projectId: project._id.toString(),
       projectCode: joinedProject.projectCode,
       joinedUserId: req.user.id,
@@ -284,6 +285,16 @@ exports.addProjectAttachments = catchAsync(async (req, res, next) => {
   await project.save();
 
   const updatedProject = await populateProjectWithAttachments(project._id, req);
+
+  if (global.io) {
+    global.io.emit('project:membershipChanged', {
+      action: 'removed',
+      projectId: project._id.toString(),
+      removedUserId: memberId,
+      removedByUserId: req.user.id,
+      projectCode: updatedProject.projectCode,
+    });
+  }
 
   res.status(200).json({
     status: 'success',

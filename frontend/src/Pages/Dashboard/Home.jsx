@@ -81,9 +81,22 @@ const getGreetingByTime = () => {
 
 function Home() {
   const { profile } = useCurrentUser();
-  const { projects, updateProjectBoard, updateProjectTask } = useProjects();
+  const {
+    projects,
+    updateProjectBoard,
+    updateProjectTask,
+    addProjectTaskComment,
+    addProjectTaskAttachments,
+  } = useProjects();
   const firstName = profile?.name?.split(" ")[0] || "there";
   const displayName = profile?.name || "Workspace User";
+  const currentActor = useMemo(
+    () => ({
+      userId: profile?._id || null,
+      name: displayName,
+    }),
+    [displayName, profile?._id]
+  );
   const userInitials = getInitials(displayName || "OJ");
   const greeting = getGreetingByTime();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
@@ -197,10 +210,15 @@ function Home() {
     setIsAddTaskOpen(true);
   };
 
-  const handleUpdateTask = (taskId, updates, projectSlug) => {
+  const handleUpdateTask = async (taskId, updates, projectSlug) => {
     if (projectSlug) {
-      updateProjectTask(projectSlug, taskId, updates);
-      return;
+      const result = await updateProjectTask(projectSlug, taskId, updates, currentActor);
+
+      if (!result?.success && result?.error) {
+        window.alert(result.error);
+      }
+
+      return result;
     }
 
     setPersonalColumns((currentColumns) => {
@@ -246,7 +264,35 @@ function Home() {
     });
   };
 
-  const handleDragEnd = ({ source, destination }) => {
+  const handleAddTaskComment = async (taskId, text, projectSlug) => {
+    if (!projectSlug) {
+      return { success: false, error: "This task is not linked to a project." };
+    }
+
+    const result = await addProjectTaskComment(projectSlug, taskId, text);
+
+    if (!result.success) {
+      window.alert(result.error || "Unable to add comment.");
+    }
+
+    return result;
+  };
+
+  const handleAddTaskAttachments = async (taskId, files, projectSlug) => {
+    if (!projectSlug) {
+      return { success: false, error: "This task is not linked to a project." };
+    }
+
+    const result = await addProjectTaskAttachments(projectSlug, taskId, files);
+
+    if (!result.success) {
+      window.alert(result.error || "Unable to add attachments.");
+    }
+
+    return result;
+  };
+
+  const handleDragEnd = async ({ source, destination }) => {
     if (!destination) {
       return;
     }
@@ -266,57 +312,74 @@ function Home() {
       return;
     }
 
+    if (movedTask.projectSlug) {
+      if (source.droppableId === destination.droppableId) {
+        updateProjectBoard(
+          movedTask.projectSlug,
+          (currentColumns) => {
+            const nextColumns = currentColumns.map((column) => ({
+              ...column,
+              tasks: [...column.tasks],
+            }));
+
+            const sourceProjectColumnIndex = nextColumns.findIndex(
+              (column) => column.title === source.droppableId
+            );
+            const destinationProjectColumnIndex = nextColumns.findIndex(
+              (column) => column.title === destination.droppableId
+            );
+
+            if (sourceProjectColumnIndex === -1 || destinationProjectColumnIndex === -1) {
+              return currentColumns;
+            }
+
+            const sourceProjectColumn = nextColumns[sourceProjectColumnIndex];
+            const destinationProjectColumn = nextColumns[destinationProjectColumnIndex];
+            const taskIndex = sourceProjectColumn.tasks.findIndex(
+              (task) => task.id === movedTask.id
+            );
+
+            if (taskIndex === -1) {
+              return currentColumns;
+            }
+
+            const [removedTask] = sourceProjectColumn.tasks.splice(taskIndex, 1);
+
+            if (!removedTask) {
+              return currentColumns;
+            }
+
+            destinationProjectColumn.tasks.splice(destination.index, 0, {
+              ...removedTask,
+              status: destinationProjectColumn.title,
+            });
+
+            return nextColumns;
+          },
+          currentActor
+        );
+
+        return;
+      }
+
+      const result = await updateProjectTask(
+        movedTask.projectSlug,
+        movedTask.id,
+        { status: destinationColumn.title },
+        currentActor
+      );
+
+      if (!result?.success && result?.error) {
+        window.alert(result.error);
+      }
+
+      return;
+    }
+
     const destinationTasks = [...destinationColumn.tasks];
 
     if (source.droppableId === destination.droppableId) {
       destinationTasks.splice(source.index, 1);
-    }
-
-    if (movedTask.projectSlug) {
-      const projectDestinationIndex = destinationTasks
-        .slice(0, destination.index)
-        .filter((task) => task.projectSlug === movedTask.projectSlug).length;
-
-      updateProjectBoard(movedTask.projectSlug, (currentColumns) => {
-        const nextColumns = currentColumns.map((column) => ({
-          ...column,
-          tasks: [...column.tasks],
-        }));
-
-        const sourceProjectColumnIndex = nextColumns.findIndex(
-          (column) => column.title === source.droppableId
-        );
-        const destinationProjectColumnIndex = nextColumns.findIndex(
-          (column) => column.title === destination.droppableId
-        );
-
-        if (sourceProjectColumnIndex === -1 || destinationProjectColumnIndex === -1) {
-          return currentColumns;
-        }
-
-        const sourceProjectColumn = nextColumns[sourceProjectColumnIndex];
-        const destinationProjectColumn = nextColumns[destinationProjectColumnIndex];
-        const taskIndex = sourceProjectColumn.tasks.findIndex((task) => task.id === movedTask.id);
-
-        if (taskIndex === -1) {
-          return currentColumns;
-        }
-
-        const [removedTask] = sourceProjectColumn.tasks.splice(taskIndex, 1);
-
-        if (!removedTask) {
-          return currentColumns;
-        }
-
-        destinationProjectColumn.tasks.splice(projectDestinationIndex, 0, {
-          ...removedTask,
-          status: destinationProjectColumn.title,
-        });
-
-        return nextColumns;
-      });
-
-      return;
     }
 
     const personalDestinationIndex = destinationTasks
@@ -400,6 +463,10 @@ function Home() {
                     const matchedTask = column.tasks.find((task) => task.id === taskId);
                     handleUpdateTask(taskId, updates, matchedTask?.projectSlug);
                   }}
+                  onAddTaskComment={handleAddTaskComment}
+                  onAddTaskAttachments={handleAddTaskAttachments}
+                  currentUserName={displayName}
+                  currentUserId={profile?._id || null}
                 />
               ))}
             </div>

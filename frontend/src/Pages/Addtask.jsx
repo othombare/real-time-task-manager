@@ -108,6 +108,7 @@ function Addtask({
       status: form.status,
       assignee: [trimmedAssignee],
       assigneeNames: selectedAssigneeOption ? [selectedAssigneeOption.label] : [trimmedAssignee],
+      dueDateRaw: form.dueDate,
       dueDate: new Date(form.dueDate).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -115,6 +116,7 @@ function Addtask({
       comments: 0,
       attachments: selectedFiles.length,
       attachmentFiles: selectedFiles.map((file) => file.name),
+      files: selectedFiles,
     });
 
     setForm({
