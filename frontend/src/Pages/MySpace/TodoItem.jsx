@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckIcon, PencilIcon, SaveIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useTodo } from "./contexts";
 
@@ -7,10 +7,16 @@ function TodoItem({ todo }) {
   const [draftDescription, setDraftDescription] = useState(todo.description || "");
   const [isEditing, setIsEditing] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const { deleteTodo, toggleComplete, updateTodo } = useTodo();
+  const { deleteTodo, toggleComplete, updateTodo, processingTodoId } = useTodo();
+  const isProcessing = processingTodoId === todo._id;
 
-  const handleSave = () => {
-    const wasUpdated = updateTodo(todo.id, {
+  useEffect(() => {
+    setDraft(todo.todo);
+    setDraftDescription(todo.description || "");
+  }, [todo.description, todo.todo]);
+
+  const handleSave = async () => {
+    const wasUpdated = await updateTodo(todo._id, {
       todo: draft,
       description: draftDescription,
     });
@@ -38,7 +44,8 @@ function TodoItem({ todo }) {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <button
           type="button"
-          onClick={() => toggleComplete(todo.id)}
+          onClick={() => toggleComplete(todo._id)}
+          disabled={isProcessing}
           className={`flex h-6 w-6 items-center justify-center rounded-full border transition ${
             todo.completed
               ? "border-emerald-500 bg-emerald-500 text-white"
@@ -59,12 +66,14 @@ function TodoItem({ todo }) {
               <input
                 type="text"
                 value={draft}
+                disabled={isProcessing}
                 onChange={(event) => setDraft(event.target.value)}
                 className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 autoFocus
               />
               <textarea
                 value={draftDescription}
+                disabled={isProcessing}
                 onChange={(event) => setDraftDescription(event.target.value)}
                 placeholder="Add a short description..."
                 className="min-h-20 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
@@ -92,14 +101,16 @@ function TodoItem({ todo }) {
               <button
                 type="button"
                 onClick={handleSave}
+                disabled={isProcessing}
                 className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
               >
                 <SaveIcon size={14} />
-                Save
+                {isProcessing ? "Saving..." : "Save"}
               </button>
               <button
                 type="button"
                 onClick={handleCancel}
+                disabled={isProcessing}
                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary"
               >
                 <XIcon size={14} />
@@ -110,7 +121,7 @@ function TodoItem({ todo }) {
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              disabled={todo.completed}
+              disabled={todo.completed || isProcessing}
               className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold text-muted-foreground transition hover:border-primary/30 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
               <PencilIcon size={14} />
@@ -120,11 +131,12 @@ function TodoItem({ todo }) {
 
           <button
             type="button"
-            onClick={() => deleteTodo(todo.id)}
+            onClick={() => deleteTodo(todo._id)}
+            disabled={isProcessing}
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-200 px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
           >
             <Trash2Icon size={14} />
-            Delete
+            {isProcessing ? "Deleting..." : "Delete"}
           </button>
         </div>
         </div>

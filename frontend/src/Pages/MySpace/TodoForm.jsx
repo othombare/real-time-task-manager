@@ -5,12 +5,12 @@ import { useTodo } from "./contexts";
 function TodoForm() {
   const [todo, setTodo] = useState("");
   const [description, setDescription] = useState("");
-  const { addTodo } = useTodo();
+  const { addTodo, submitting } = useTodo();
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const wasAdded = addTodo({
+    const wasAdded = await addTodo({
       todo,
       description,
     });
@@ -28,20 +28,23 @@ function TodoForm() {
         placeholder="Write your next task..."
         className="h-12 flex-1 rounded-2xl border border-input bg-background px-4 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15"
         value={todo}
+        disabled={submitting}
         onChange={(event) => setTodo(event.target.value)}
       />
       <textarea
         placeholder="Add a short description if needed..."
         className="min-h-24 w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15"
         value={description}
+        disabled={submitting}
         onChange={(event) => setDescription(event.target.value)}
       />
       <button
         type="submit"
+        disabled={submitting}
         className="inline-flex h-12 items-center justify-center gap-2 self-start rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 active:scale-[0.99]"
       >
         <PlusIcon size={16} />
-        Add task
+        {submitting ? "Adding..." : "Add task"}
       </button>
     </form>
   );

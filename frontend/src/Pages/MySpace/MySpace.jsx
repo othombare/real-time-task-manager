@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardListIcon, FilterIcon, SparklesIcon } from "lucide-react";
+import { ClipboardListIcon, SparklesIcon } from "lucide-react";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import TodoForm from "./TodoForm";
 import TodoItem from "./TodoItem";
 import MyNotesPanel from "./MyNotesPanel";
 import { TodoProvider } from "./contexts";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import {
+  clearCompletedTodos,
+  createTodo as createTodoRequest,
+  deleteTodo as deleteTodoRequest,
+  getTodos,
+  updateTodo as updateTodoRequest,
+} from "../../utils/todoApi";
 
-const STORAGE_KEY = "taskvue-personal-todos";
 const NOTES_STORAGE_KEY = "taskvue-personal-notes";
 
 const filterOptions = [
@@ -19,35 +25,45 @@ const filterOptions = [
 const getStorageKey = (prefix, userId = "anonymous") => `${prefix}:${userId || "anonymous"}`;
 
 function MySpace() {
-  const { profile } = useCurrentUser();
+  const { profile, token, initialized } = useCurrentUser();
   const [todos, setTodos] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [processingTodoId, setProcessingTodoId] = useState(null);
+  const [error, setError] = useState("");
   const notesStorageKey = getStorageKey(NOTES_STORAGE_KEY, profile?._id);
   const displayName = profile?.name || "Workspace User";
 
   useEffect(() => {
-    const savedTodos = localStorage.getItem(STORAGE_KEY);
-
-    if (!savedTodos) {
+    if (!initialized) {
       return;
     }
 
-    try {
-      const parsedTodos = JSON.parse(savedTodos);
-
-      if (Array.isArray(parsedTodos)) {
-        setTodos(parsedTodos);
-      }
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
+    if (!token) {
+      setTodos([]);
+      setLoading(false);
+      return;
     }
-  }, []);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-  }, [todos]);
+    const loadTodos = async () => {
+      setLoading(true);
+      setError("");
 
-  const addTodo = ({ todo: todoText, description = "" }) => {
+      try {
+        const response = await getTodos();
+        setTodos(response.data.data?.todos || []);
+      } catch (loadError) {
+        setError(loadError.message || "Unable to load your todos.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTodos();
+  }, [initialized, token]);
+
+  const addTodo = async ({ todo: todoText, description = "" }) => {
     const trimmedTodo = todoText.trim();
     const trimmedDescription = description.trim();
 
@@ -55,21 +71,30 @@ function MySpace() {
       return false;
     }
 
-    setTodos((prevTodos) => [
-      {
-        id: Date.now(),
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const response = await createTodoRequest({
         todo: trimmedTodo,
         description: trimmedDescription,
-        completed: false,
-        createdAt: new Date().toISOString(),
-      },
-      ...prevTodos,
-    ]);
+      });
 
-    return true;
+      const nextTodo = response.data.data?.todo;
+      if (nextTodo) {
+        setTodos((prevTodos) => [nextTodo, ...prevTodos]);
+      }
+
+      return true;
+    } catch (createError) {
+      setError(createError.message || "Unable to create todo.");
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const updateTodo = (id, { todo: todoText, description = "" }) => {
+  const updateTodo = async (id, { todo: todoText, description = "" }) => {
     const trimmedTodo = todoText.trim();
     const trimmedDescription = description.trim();
 
@@ -77,40 +102,82 @@ function MySpace() {
       return false;
     }
 
-    setTodos((prevTodos) =>
-      prevTodos.map((todo) =>
-        todo.id === id
-          ? {
-              ...todo,
-              todo: trimmedTodo,
-              description: trimmedDescription,
-            }
-          : todo
-      )
-    );
+    setProcessingTodoId(id);
+    setError("");
 
-    return true;
+    try {
+      const response = await updateTodoRequest(id, {
+        todo: trimmedTodo,
+        description: trimmedDescription,
+      });
+      const updatedTodo = response.data.data?.todo;
+
+      if (updatedTodo) {
+        setTodos((prevTodos) =>
+          prevTodos.map((todo) => (todo._id === id ? updatedTodo : todo))
+        );
+      }
+
+      return true;
+    } catch (saveError) {
+      setError(saveError.message || "Unable to update todo.");
+      return false;
+    } finally {
+      setProcessingTodoId(null);
+    }
   };
 
-  const deleteTodo = (id) => {
-    setTodos((prevTodos) => prevTodos.filter((todo) => todo.id !== id));
+  const deleteTodo = async (id) => {
+    setProcessingTodoId(id);
+    setError("");
+
+    try {
+      await deleteTodoRequest(id);
+      setTodos((prevTodos) => prevTodos.filter((todo) => todo._id !== id));
+    } catch (deleteError) {
+      setError(deleteError.message || "Unable to delete todo.");
+    } finally {
+      setProcessingTodoId(null);
+    }
   };
 
-  const toggleComplete = (id) => {
-    setTodos((prevTodos) =>
-      prevTodos.map((todo) =>
-        todo.id === id
-          ? {
-              ...todo,
-              completed: !todo.completed,
-            }
-          : todo
-      )
-    );
+  const toggleComplete = async (id) => {
+    const currentTodo = todos.find((todo) => todo._id === id);
+
+    if (!currentTodo) {
+      return;
+    }
+
+    setProcessingTodoId(id);
+    setError("");
+
+    try {
+      const response = await updateTodoRequest(id, {
+        completed: !currentTodo.completed,
+      });
+      const updatedTodo = response.data.data?.todo;
+
+      if (updatedTodo) {
+        setTodos((prevTodos) =>
+          prevTodos.map((todo) => (todo._id === id ? updatedTodo : todo))
+        );
+      }
+    } catch (toggleError) {
+      setError(toggleError.message || "Unable to update todo status.");
+    } finally {
+      setProcessingTodoId(null);
+    }
   };
 
-  const clearCompleted = () => {
-    setTodos((prevTodos) => prevTodos.filter((todo) => !todo.completed));
+  const clearCompleted = async () => {
+    setError("");
+
+    try {
+      await clearCompletedTodos();
+      setTodos((prevTodos) => prevTodos.filter((todo) => !todo.completed));
+    } catch (clearError) {
+      setError(clearError.message || "Unable to clear completed todos.");
+    }
   };
 
   const filteredTodos = useMemo(() => {
@@ -137,7 +204,21 @@ function MySpace() {
   }, [todos]);
 
   return (
-    <TodoProvider value={{ addTodo, deleteTodo, toggleComplete, updateTodo }}>
+    <TodoProvider
+      value={{
+        todos,
+        loading,
+        submitting,
+        processingTodoId,
+        error,
+        addTodo,
+        deleteTodo,
+        toggleComplete,
+        updateTodo,
+        clearCompleted,
+        clearError: () => setError(""),
+      }}
+    >
       <DashboardLayout>
         <div className="space-y-8">
           <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -223,8 +304,18 @@ function MySpace() {
                 </div>
 
                 <div className="mt-5 space-y-3">
-                  {filteredTodos.length > 0 ? (
-                    filteredTodos.map((todo) => <TodoItem key={todo.id} todo={todo} />)
+                  {error ? (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {error}
+                    </div>
+                  ) : null}
+
+                  {loading ? (
+                    <div className="rounded-2xl border border-dashed border-border bg-slate-50 px-4 py-8 text-center">
+                      <p className="text-sm font-semibold">Loading your todo list...</p>
+                    </div>
+                  ) : filteredTodos.length > 0 ? (
+                    filteredTodos.map((todo) => <TodoItem key={todo._id} todo={todo} />)
                   ) : (
                     <div className="rounded-2xl border border-dashed border-border bg-slate-50 px-4 py-8 text-center">
                       <p className="text-sm font-semibold">No items in this view yet.</p>
