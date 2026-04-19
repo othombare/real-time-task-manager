@@ -216,7 +216,7 @@ function MySpace() {
         <div className="space-y-8">
           <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">Focus</p>
+              
               <h1 className="text-3xl font-bold tracking-tight">Personal Todo</h1>
               <p className="text-sm text-muted-foreground">
                 Keep your tasks close to the workspace without losing focus.
