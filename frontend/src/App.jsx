@@ -5,9 +5,11 @@ import { useAppDispatch } from "./store/hooks";
 import { initializeAuth } from "./store/authSlice";
 import { ProjectsProvider } from "./Pages/Projects/ProjectsContext";
 import socket from "./lib/socket";
+import useGlobalPresence from "./hooks/useGlobalPresence";
 
 function App() {
   const dispatch = useAppDispatch();
+  useGlobalPresence();
 
   useEffect(() => {
     dispatch(initializeAuth());

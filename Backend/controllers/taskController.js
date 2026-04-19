@@ -6,7 +6,7 @@ const Project = require('../models/projectModel');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
-const TASK_POPULATE_FIELDS = 'name email photo role about location githubProfile linkedinProfile';
+const TASK_POPULATE_FIELDS = 'name email photo role about location githubProfile linkedinProfile lastSeen isOnline';
 const TASK_ATTACHMENTS_ROOT = path.join(__dirname, '..', 'uploads', 'tasks');
 
 const populateTaskQuery = (query) =>

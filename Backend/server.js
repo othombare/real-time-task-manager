@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const http = require("http");
-const { Server } = require("socket.io");
+const { createSocketServer } = require("./socket");
 
 dotenv.config({ path: "./config.env" });
 
@@ -17,42 +17,10 @@ const allowedOrigins = [
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    credentials: true,
-  },
-});
+const io = createSocketServer(server, allowedOrigins);
 
 global.io = io;
 app.set("io", io);
-
-io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
-
-  socket.on("joinProject", (projectId) => {
-    if (!projectId) {
-      return;
-    }
-
-    socket.join(String(projectId));
-    console.log(`User joined project ${projectId}`);
-  });
-
-  socket.on("leaveProject", (projectId) => {
-    if (!projectId) {
-      return;
-    }
-
-    socket.leave(String(projectId));
-    console.log(`User left project ${projectId}`);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
-  });
-});
 
 const DB = process.env.DATABASE.replace("<PASSWORD>", process.env.DATABASE_PASSWORD);
 

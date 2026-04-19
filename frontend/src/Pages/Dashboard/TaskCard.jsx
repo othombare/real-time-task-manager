@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { memberNameMap } from "../Projects/projectData"
 import { cn } from "../../lib/utils"
+import UserStatus from "../../components/UserStatus"
 
 const formatMetaDate = (value) => {
   if (!value) {
@@ -96,6 +97,8 @@ export function TaskCard({
   notes,
   priority,
   assignee,
+  assigneeNames = [],
+  assignedToUserId,
   createdBy,
   createdByUserId,
   dueDate,
@@ -130,6 +133,12 @@ export function TaskCard({
   const creatorLabel =
     typeof createdBy === "string" ? createdBy : createdBy?.name || createdBy?.label || ""
   const resolvedCreatorName = memberNameMap[creatorLabel] || creatorLabel || "Workspace"
+  const resolvedAssigneeName =
+    Array.isArray(assigneeNames) && assigneeNames.length > 0
+      ? assigneeNames.join(", ")
+      : Array.isArray(assignee) && assignee.length > 0
+        ? assignee.join(", ")
+        : null
   const normalizedCommentItems =
     Array.isArray(commentItems) && commentItems.length > 0
       ? commentItems.map(normalizeCommentItem)
@@ -333,16 +342,7 @@ export function TaskCard({
                 <Trash2Icon size={14} />
               </button>
             )}
-            <div className="flex -space-x-2">
-              {(Array.isArray(assignee) ? assignee : []).map((initial, index) => (
-                <div
-                  key={`${title}-assignee-${index}`}
-                  className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary text-[10px] font-bold text-primary-foreground transition-transform hover:-translate-y-1 hover:z-10"
-                >
-                  {initial}
-                </div>
-              ))}
-            </div>
+            
           </div>
         </div>
 
@@ -354,6 +354,14 @@ export function TaskCard({
           <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <FolderKanbanIcon size={12} className="text-primary/70" />
             {projectName}
+          </p>
+        )}
+
+        {resolvedAssigneeName && (
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <UserIcon size={12} className="text-primary/70" />
+            Assigned to {resolvedAssigneeName}
+            {assignedToUserId && <UserStatus userId={assignedToUserId} />}
           </p>
         )}
 
@@ -538,7 +546,7 @@ export function TaskCard({
                               <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                                 {[comment.userName, formatMetaDate(comment.createdAt)]
                                   .filter(Boolean)
-                                  .join(" · ")}
+                                  .join(" - ")}
                               </p>
                             )}
                           </div>
@@ -590,7 +598,7 @@ export function TaskCard({
                                 <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                                   {[attachment.uploadedBy, formatMetaDate(attachment.uploadedAt), attachment.sizeLabel]
                                     .filter(Boolean)
-                                    .join(" · ")}
+                                    .join(" - ")}
                                 </p>
                               )}
                             </div>

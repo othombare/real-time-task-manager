@@ -10,6 +10,7 @@ const userRouter= require(`./routes/userRoutes`)
 const projectRouter = require('./routes/projectRoutes');
 const taskRouter = require('./routes/taskRoutes');
 const todoRouter = require('./routes/todoRoutes');
+const presenceRouter = require('./routes/presenceRoutes');
 const globalErrorHandler = require('./controllers/errorController');
 
 //1. MIDDLEWARE
@@ -58,6 +59,8 @@ app.use('/api/v1/users', userRouter);
 app.use('/api/v1/projects', projectRouter);
 app.use('/api/v1/tasks', taskRouter);
 app.use('/api/v1/todos', todoRouter);
+app.use('/api/v1/presence', presenceRouter);
+app.use('/api/presence', presenceRouter);
 
 // For handling errors globally
 app.use(globalErrorHandler);

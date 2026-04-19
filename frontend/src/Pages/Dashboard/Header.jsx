@@ -14,6 +14,7 @@ import { useAppDispatch } from "../../store/hooks";
 import CreateProjectModal from "../Projects/CreateProjectModal";
 import { useProjects } from "../Projects/useProjects";
 import { getInitials, resolveMemberLabel } from "../Projects/projectData";
+import UserStatus from "../../components/UserStatus";
 
 export function Header() {
   const navigate = useNavigate();
@@ -111,7 +112,8 @@ export function Header() {
           >
             <div className="flex flex-col items-end hidden sm:flex">
               <p className="text-sm font-bold leading-none">{displayName}</p>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground/80 mt-1">Free Plan</p>
+              <UserStatus userId={profile?._id} showLabel className="mt-1 justify-end" />
+            
             </div>
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-100 to-slate-200 border-2 border-border p-0.5 group-hover:shadow-md transition-shadow">
               <div className="w-full h-full rounded-lg bg-white flex items-center justify-center font-bold text-primary shadow-inner">{initials}</div>

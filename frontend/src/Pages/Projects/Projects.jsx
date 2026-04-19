@@ -11,7 +11,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { getInitials, hasProjectAccess } from "./projectData";
+import { getInitials, hasProjectAccess, resolveMemberLabel } from "./projectData";
+import { useAppSelector } from "../../store/hooks";
+import UserStatus from "../../components/UserStatus";
 import useProjects from "./useProjects";
 
 const normalizeComparableValue = (value = "") => value.trim().toLowerCase();
@@ -39,9 +41,16 @@ const isProjectCompleted = (project) => {
   return workingColumns.every((column) => (column.tasks ?? []).length === 0);
 };
 
+const getProjectMemberProfiles = (project) =>
+  Array.isArray(project?.memberProfiles) ? project.memberProfiles : [];
+
+const getMemberDisplayName = (member, project) =>
+  member?.name || resolveMemberLabel(member?.id, project?.memberDirectory || {});
+
 function Projects() {
   const navigate = useNavigate();
   const { profile } = useCurrentUser();
+  const presenceByUserId = useAppSelector((state) => state.presence.byUserId);
   const { projects, joinProjectByCode, removeProject } = useProjects();
   const [joinCode, setJoinCode] = useState("");
   const [joinFeedback, setJoinFeedback] = useState("");
@@ -155,6 +164,13 @@ function Projects() {
               const canDeleteProject =
                 Boolean(profile?._id && getProjectOwnerId(project) === profile._id) ||
                 normalizeComparableValue(displayName) === normalizeComparableValue(getProjectCreatorName(project));
+              const memberProfiles = getProjectMemberProfiles(project);
+              const onlineMembersCount = memberProfiles.reduce((count, member) => {
+                const memberUserId = String(member?.userId || "").trim();
+                return memberUserId && presenceByUserId[memberUserId]?.status === "online"
+                  ? count + 1
+                  : count;
+              }, 0);
 
               return (
                 <button
@@ -187,6 +203,40 @@ function Projects() {
                       <div className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
                         <PaperclipIcon size={12} />
                         {project.attachments} attachment{project.attachments > 1 ? "s" : ""}
+                      </div>
+                    )}
+
+                    {memberProfiles.length > 0 && (
+                      <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/60 px-3 py-2">
+                        <div className="flex -space-x-2">
+                          {memberProfiles.slice(0, 4).map((member, index) => {
+                            const memberName = getMemberDisplayName(member, project);
+                            const memberUserId = String(member?.userId || "").trim();
+
+                            return (
+                              <div
+                                key={`${project._id || project.id}-member-${member?.id || index}`}
+                                className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-card bg-primary text-[10px] font-bold text-primary-foreground"
+                                title={memberName}
+                              >
+                                {getInitials(memberName)}
+                                <UserStatus
+                                  userId={memberUserId}
+                                  className="absolute -bottom-1 -right-1"
+                                  indicatorClassName="h-2.5 w-2.5"
+                                />
+                              </div>
+                            );
+                          })}
+                          {memberProfiles.length > 4 && (
+                            <div className="flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-card bg-muted px-2 text-[10px] font-bold text-muted-foreground">
+                              +{memberProfiles.length - 4}
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          {onlineMembersCount} online
+                        </p>
                       </div>
                     )}
 

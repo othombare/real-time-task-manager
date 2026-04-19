@@ -69,6 +69,14 @@ const userSchema= new mongoose.Schema({
             message: 'Please provide a valid LinkedIn profile URL.'
         }
     },
+    lastSeen: {
+        type: Date,
+        default: null
+    },
+    isOnline: {
+        type: Boolean,
+        default: false
+    },
     password:{
         type:String,
         required:[true,"Password is required"],

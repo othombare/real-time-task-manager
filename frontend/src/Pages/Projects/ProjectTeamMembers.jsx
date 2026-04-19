@@ -16,6 +16,7 @@ import { useProjects } from "./useProjects";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { getInitials, hasProjectAccess, resolveMemberLabel } from "./projectData";
 import useProjectSocketRoom from "../../hooks/useProjectSocketRoom";
+import UserStatus from "../../components/UserStatus";
 
 const normalizeProfileLink = (value = "") => {
   const trimmedValue = String(value || "").trim();
@@ -25,6 +26,36 @@ const normalizeProfileLink = (value = "") => {
   }
 
   return /^https?:\/\//i.test(trimmedValue) ? trimmedValue : `https://${trimmedValue}`;
+};
+
+const normalizeComparableValue = (value = "") => String(value || "").trim().toLowerCase();
+
+const resolvePresenceUserId = (member, profile) => {
+  if (member?.userId) {
+    return member.userId;
+  }
+
+  if (!profile?._id) {
+    return null;
+  }
+
+  if (
+    member?.email &&
+    profile?.email &&
+    normalizeComparableValue(member.email) === normalizeComparableValue(profile.email)
+  ) {
+    return profile._id;
+  }
+
+  if (
+    member?.name &&
+    profile?.name &&
+    normalizeComparableValue(member.name) === normalizeComparableValue(profile.name)
+  ) {
+    return profile._id;
+  }
+
+  return null;
 };
 
 function ProjectTeamMembers() {
@@ -231,7 +262,10 @@ function ProjectTeamMembers() {
                       {member.id}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold">{member.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold">{member.name}</p>
+                        <UserStatus userId={resolvePresenceUserId(member, profile)} />
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {member.id === currentMemberId ? "You" : member.role}
                       </p>
@@ -251,6 +285,11 @@ function ProjectTeamMembers() {
                     <div>
                       <h3 className="text-lg font-semibold">{selectedMember.name}</h3>
                       <p className="text-sm text-muted-foreground">{selectedMember.role}</p>
+                      <UserStatus
+                        userId={resolvePresenceUserId(selectedMember, profile)}
+                        showLabel
+                        className="mt-1"
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
