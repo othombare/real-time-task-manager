@@ -342,7 +342,23 @@ export function TaskCard({
                 <Trash2Icon size={14} />
               </button>
             )}
-            
+            <div className="flex -space-x-2">
+              {(Array.isArray(assignee) ? assignee : []).map((initial, index) => (
+                <div
+                  key={`${title}-assignee-${index}`}
+                  className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary text-[10px] font-bold text-primary-foreground transition-transform hover:-translate-y-1 hover:z-10"
+                >
+                  {initial}
+                  {index === 0 && assignedToUserId && (
+                    <UserStatus
+                      userId={assignedToUserId}
+                      className="absolute -bottom-1 -right-1"
+                      indicatorClassName="h-2.5 w-2.5"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

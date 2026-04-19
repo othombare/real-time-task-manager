@@ -21,7 +21,7 @@ const navItems = [
   { icon: BriefcaseBusinessIcon, label: "Projects", id: "projects", path: "/projects" },
   { icon: BarChart3Icon, label: "Analytics", id: "analytics", path: "/analytics" },
   {icon:ClipboardList,label:"My Space",id:"my-space",path:"/my-space"},
-  { icon: MessageSquareIcon, label: "Message", id: "message", path: "/message", badge: 2 },
+  { icon: MessageSquareIcon, label: "Message", id: "message", path: "/message" },
   { icon: SettingsIcon, label: "Settings", id: "settings", path: "/settings" },
   
 ];
