@@ -3,6 +3,16 @@ const User= require('./../models/userModel');
 const catchAsync= require('./../utils/catchAsync');
 const AppError = require('./../utils/appError');
 
+const normalizeProfileLink = (value) => {
+    const trimmedValue = String(value || '').trim();
+
+    if (!trimmedValue) {
+        return '';
+    }
+
+    return /^https?:\/\//i.test(trimmedValue) ? trimmedValue : `https://${trimmedValue}`;
+};
+
 //Get current user details
 exports.getMe = catchAsync(async (req, res, next) => {
     const user = await User.findById(req.user.id);
@@ -50,12 +60,23 @@ exports.getUser = (req, res)=>{
 
 //Not doing much just to see the PATCH
 exports.updateMe = catchAsync(async (req, res, next) => {
-    const allowedFields = ['name', 'photo', 'role', 'about', 'location'];
+    const allowedFields = [
+        'name',
+        'photo',
+        'role',
+        'about',
+        'location',
+        'githubProfile',
+        'linkedinProfile'
+    ];
     const updates = {};
 
     allowedFields.forEach((field) => {
         if (req.body[field] !== undefined) {
-            updates[field] = req.body[field];
+            updates[field] =
+                field === 'githubProfile' || field === 'linkedinProfile'
+                    ? normalizeProfileLink(req.body[field])
+                    : req.body[field];
         }
     });
 

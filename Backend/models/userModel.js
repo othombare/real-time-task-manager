@@ -3,6 +3,20 @@ const mongoose= require('mongoose');
 const validator= require('validator');
 const bcrypt= require('bcrypt');
 
+const hasAllowedHostname = (urlValue, allowedHostnames = []) => {
+    try {
+        const parsedUrl = new URL(urlValue);
+        const hostname = parsedUrl.hostname.toLowerCase();
+
+        return allowedHostnames.some(
+            (allowedHostname) =>
+                hostname === allowedHostname || hostname.endsWith(`.${allowedHostname}`)
+        );
+    } catch {
+        return false;
+    }
+};
+
 //Creating Schema
 const userSchema= new mongoose.Schema({
     name:{
@@ -30,6 +44,30 @@ const userSchema= new mongoose.Schema({
     location: {
         type: String,
         default: ''
+    },
+    githubProfile: {
+        type: String,
+        default: '',
+        trim: true,
+        validate: {
+            validator: (value) =>
+                !value ||
+                (validator.isURL(value, { protocols: ['http', 'https'], require_protocol: true }) &&
+                    hasAllowedHostname(value, ['github.com'])),
+            message: 'Please provide a valid GitHub profile URL.'
+        }
+    },
+    linkedinProfile: {
+        type: String,
+        default: '',
+        trim: true,
+        validate: {
+            validator: (value) =>
+                !value ||
+                (validator.isURL(value, { protocols: ['http', 'https'], require_protocol: true }) &&
+                    hasAllowedHostname(value, ['linkedin.com'])),
+            message: 'Please provide a valid LinkedIn profile URL.'
+        }
     },
     password:{
         type:String,

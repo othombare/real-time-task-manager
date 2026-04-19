@@ -1,5 +1,17 @@
 import { useEffect, useState } from "react";
-import { ImageIcon, LogOutIcon, MailIcon, MapPinIcon, PencilIcon, SaveIcon, SparklesIcon, UserRoundIcon, XIcon } from "lucide-react";
+import {
+  GithubIcon,
+  ImageIcon,
+  LinkedinIcon,
+  LogOutIcon,
+  MailIcon,
+  MapPinIcon,
+  PencilIcon,
+  SaveIcon,
+  SparklesIcon,
+  UserRoundIcon,
+  XIcon,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -12,6 +24,26 @@ const profileStats = [
   { label: "Avg. Response", value: "1.8h" },
 ];
 
+const ensureHttpUrl = (value = "") => {
+  const trimmedValue = String(value || "").trim();
+
+  if (!trimmedValue) {
+    return "";
+  }
+
+  return /^https?:\/\//i.test(trimmedValue) ? trimmedValue : `https://${trimmedValue}`;
+};
+
+const matchesAllowedHostname = (value = "", allowedHostname) => {
+  try {
+    const parsedUrl = new URL(ensureHttpUrl(value));
+    const hostname = parsedUrl.hostname.toLowerCase();
+    return hostname === allowedHostname || hostname.endsWith(`.${allowedHostname}`);
+  } catch {
+    return false;
+  }
+};
+
 function MyProfile() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -19,6 +51,8 @@ function MyProfile() {
   const [role, setRole] = useState("");
   const [about, setAbout] = useState("");
   const [location, setLocation] = useState("");
+  const [githubProfile, setGithubProfile] = useState("");
+  const [linkedinProfile, setLinkedinProfile] = useState("");
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -28,6 +62,8 @@ function MyProfile() {
         "This profile is connected to your active session. Add a short intro so teammates can quickly understand your role and focus."
     );
     setLocation(profile?.location || "");
+    setGithubProfile(profile?.githubProfile || "");
+    setLinkedinProfile(profile?.linkedinProfile || "");
   }, [profile]);
 
   const roleOptions = [
@@ -48,6 +84,12 @@ function MyProfile() {
   const displayName = profile?.name || "Loading profile...";
   const displayEmail = profile?.email || "No email available";
   const displayAvatar = profile?.avatar || profile?.photo;
+  const normalizedGithubUrl = ensureHttpUrl(githubProfile);
+  const normalizedLinkedinUrl = ensureHttpUrl(linkedinProfile);
+  const hasGithubProfile = Boolean(githubProfile.trim());
+  const hasLinkedinProfile = Boolean(linkedinProfile.trim());
+  const isGithubProfileValid = !hasGithubProfile || matchesAllowedHostname(githubProfile, "github.com");
+  const isLinkedinProfileValid = !hasLinkedinProfile || matchesAllowedHostname(linkedinProfile, "linkedin.com");
   const initials = (profile?.name || "TV")
     .split(" ")
     .map((part) => part[0])
@@ -56,12 +98,24 @@ function MyProfile() {
     .toUpperCase();
 
   const handleSaveProfile = async () => {
+    if (!isGithubProfileValid) {
+      alert("Please enter a valid GitHub profile URL.");
+      return;
+    }
+
+    if (!isLinkedinProfileValid) {
+      alert("Please enter a valid LinkedIn profile URL.");
+      return;
+    }
+
     try {
       await dispatch(
         saveProfile({
           role,
           about: about.trim(),
           location: location.trim(),
+          githubProfile: githubProfile.trim(),
+          linkedinProfile: linkedinProfile.trim(),
         })
       ).unwrap();
       setIsEditing(false);
@@ -77,6 +131,8 @@ function MyProfile() {
         "This profile is connected to your active session. Add a short intro so teammates can quickly understand your role and focus."
     );
     setLocation(profile?.location || "");
+    setGithubProfile(profile?.githubProfile || "");
+    setLinkedinProfile(profile?.linkedinProfile || "");
     setIsEditing(false);
   };
 
@@ -199,6 +255,70 @@ function MyProfile() {
                   <div>
                     <p>Profile Photo</p>
                     <p>{displayAvatar || "No photo"}</p>
+                  </div>
+                </div>
+
+                {/* GITHUB */}
+                <div className="flex items-center gap-3">
+                  <GithubIcon size={18} />
+                  <div className="w-full">
+                    <p>GitHub</p>
+                    {isEditing ? (
+                      <div className="space-y-1">
+                        <input
+                          value={githubProfile}
+                          onChange={(e) => setGithubProfile(e.target.value)}
+                          placeholder="https://github.com/username"
+                          className="w-full"
+                        />
+                        {!isGithubProfileValid && (
+                          <p className="text-xs text-rose-600">Enter a valid GitHub URL.</p>
+                        )}
+                      </div>
+                    ) : hasGithubProfile ? (
+                      <a
+                        href={normalizedGithubUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline-offset-2 hover:underline"
+                      >
+                        {normalizedGithubUrl}
+                      </a>
+                    ) : (
+                      <p>No GitHub profile</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* LINKEDIN */}
+                <div className="flex items-center gap-3">
+                  <LinkedinIcon size={18} />
+                  <div className="w-full">
+                    <p>LinkedIn</p>
+                    {isEditing ? (
+                      <div className="space-y-1">
+                        <input
+                          value={linkedinProfile}
+                          onChange={(e) => setLinkedinProfile(e.target.value)}
+                          placeholder="https://www.linkedin.com/in/username"
+                          className="w-full"
+                        />
+                        {!isLinkedinProfileValid && (
+                          <p className="text-xs text-rose-600">Enter a valid LinkedIn URL.</p>
+                        )}
+                      </div>
+                    ) : hasLinkedinProfile ? (
+                      <a
+                        href={normalizedLinkedinUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline-offset-2 hover:underline"
+                      >
+                        {normalizedLinkedinUrl}
+                      </a>
+                    ) : (
+                      <p>No LinkedIn profile</p>
+                    )}
                   </div>
                 </div>
 

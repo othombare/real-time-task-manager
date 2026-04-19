@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import {
   ArrowLeftIcon,
   CopyIcon,
+  GithubIcon,
+  LinkedinIcon,
   MailIcon,
   MapPinIcon,
   Trash2Icon,
@@ -14,6 +16,16 @@ import { useProjects } from "./useProjects";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { getInitials, hasProjectAccess, resolveMemberLabel } from "./projectData";
 import useProjectSocketRoom from "../../hooks/useProjectSocketRoom";
+
+const normalizeProfileLink = (value = "") => {
+  const trimmedValue = String(value || "").trim();
+
+  if (!trimmedValue) {
+    return "";
+  }
+
+  return /^https?:\/\//i.test(trimmedValue) ? trimmedValue : `https://${trimmedValue}`;
+};
 
 function ProjectTeamMembers() {
   const navigate = useNavigate();
@@ -51,6 +63,8 @@ function ProjectTeamMembers() {
         role: member.role || "Project Member",
         location: member.location || "Location not added",
         email: member.email || "No email available",
+        githubProfile: member.githubProfile || "",
+        linkedinProfile: member.linkedinProfile || "",
         memberRole: member.memberRole || "member",
         bio:
           member.about ||
@@ -282,6 +296,42 @@ function ProjectTeamMembers() {
                 <div className="mt-4 rounded-2xl border border-border bg-background px-4 py-4">
                   <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">About</p>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">{selectedMember.bio}</p>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-1">
+                  <div className="rounded-2xl border border-border bg-background px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">GitHub</p>
+                    {selectedMember.githubProfile ? (
+                      <a
+                        href={normalizeProfileLink(selectedMember.githubProfile)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-primary break-all hover:underline"
+                      >
+                        <GithubIcon size={14} />
+                        {normalizeProfileLink(selectedMember.githubProfile)}
+                      </a>
+                    ) : (
+                      <p className="mt-2 text-sm text-muted-foreground">No GitHub profile</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-border bg-background px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">LinkedIn</p>
+                    {selectedMember.linkedinProfile ? (
+                      <a
+                        href={normalizeProfileLink(selectedMember.linkedinProfile)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-primary break-all hover:underline"
+                      >
+                        <LinkedinIcon size={14} />
+                        {normalizeProfileLink(selectedMember.linkedinProfile)}
+                      </a>
+                    ) : (
+                      <p className="mt-2 text-sm text-muted-foreground">No LinkedIn profile</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

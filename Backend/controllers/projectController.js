@@ -6,7 +6,7 @@ const path = require('path');
 
 const PROJECT_CODE_LENGTH = 6;
 const PROJECT_CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-const USER_POPULATE_FIELDS = 'name email photo role about location';
+const USER_POPULATE_FIELDS = 'name email photo role about location githubProfile linkedinProfile';
 const ATTACHMENTS_ROOT = path.join(__dirname, '..', 'uploads', 'projects');
 
 const generateRandomProjectCode = () => {

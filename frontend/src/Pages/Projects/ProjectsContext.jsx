@@ -164,6 +164,16 @@ const normalizeMemberProfile = (memberProfile = {}, projectTitle = "this project
       `${fallbackName} contributes to ${projectTitle} and helps move work across planning, delivery, and review.`
     ),
     photo: pickMemberValue(memberProfile.photo, memberProfile.avatar),
+    githubProfile: pickMemberValue(
+      memberProfile.githubProfile,
+      memberProfile.github,
+      memberProfile.githubUrl
+    ),
+    linkedinProfile: pickMemberValue(
+      memberProfile.linkedinProfile,
+      memberProfile.linkedin,
+      memberProfile.linkedinUrl
+    ),
     memberRole: pickPreferredMemberField(memberProfile.memberRole, "member"),
   };
 };
@@ -189,6 +199,14 @@ const mergeMemberProfileEntry = (baseProfile, incomingProfile, projectTitle) => 
       normalizedIncoming.about ||
       normalizedBase.about,
     photo: pickPreferredMemberField(normalizedIncoming.photo, normalizedBase.photo),
+    githubProfile:
+      normalizedIncoming.githubProfile !== undefined && normalizedIncoming.githubProfile !== null
+        ? normalizedIncoming.githubProfile
+        : normalizedBase.githubProfile,
+    linkedinProfile:
+      normalizedIncoming.linkedinProfile !== undefined && normalizedIncoming.linkedinProfile !== null
+        ? normalizedIncoming.linkedinProfile
+        : normalizedBase.linkedinProfile,
     memberRole: pickPreferredMemberField(normalizedIncoming.memberRole, normalizedBase.memberRole),
   };
 };
@@ -318,6 +336,8 @@ const normalizeProject = (project, currentUser = null, rawTasks = []) => {
           email: user?.email || `${memberIdentity.id.toLowerCase()}@taskvue.app`,
           role: user?.role || (member?.role === "admin" ? "Admin" : "Project Member"),
           location: user?.location || "Location not added",
+          githubProfile: user?.githubProfile || "",
+          linkedinProfile: user?.linkedinProfile || "",
           about:
             user?.about ||
             `${user?.name || memberIdentity.label} contributes to ${title} and helps move work across planning, delivery, and review.`,
@@ -589,6 +609,23 @@ export function ProjectsProvider({ children }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
   }, [projects]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    setProjects((currentProjects) =>
+      currentProjects.map((project) => ({
+        ...project,
+        memberProfiles: syncCurrentUserMemberProfiles(
+          project.memberProfiles || [],
+          currentUser,
+          project.title || project.name || "this project"
+        ),
+      }))
+    );
+  }, [currentUser]);
 
   const fetchProjects = useCallback(async () => {
     if (!authInitialized || !currentUser) {
