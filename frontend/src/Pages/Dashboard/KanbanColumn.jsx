@@ -15,8 +15,6 @@ export function KanbanColumn({
   onAddTaskAttachments,
   onUpdateTask,
   onDeleteTask,
-  onAddTaskComment,
-  onAddTaskAttachments,
   currentUserName,
   currentUserId,
 }) {
@@ -75,8 +73,6 @@ export function KanbanColumn({
                         {...task}
                         status={task.status || title}
                         statusOptions={["To Do", "In Progress", "In Review", "Done"]}
-                        onAddComment={onAddTaskComment}
-                        onAddAttachments={onAddTaskAttachments}
                         onUpdateTask={onUpdateTask}
                         onAddComment={
                           onAddTaskComment && task.projectSlug

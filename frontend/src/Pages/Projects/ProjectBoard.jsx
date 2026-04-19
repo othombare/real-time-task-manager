@@ -3,6 +3,7 @@ import {
   ArrowLeftIcon,
   CheckCircle2Icon,
   LayersIcon,
+  PinIcon,
   PlusIcon,
   RefreshCwIcon,
   UsersIcon,
@@ -195,6 +196,28 @@ function ProjectBoard() {
     return result
   }
 
+  const handleAddTaskComment = async (taskId, text, taskProjectSlug) => {
+    const targetProjectSlug = taskProjectSlug || projectSlug
+    const result = await addProjectTaskComment(targetProjectSlug, taskId, text)
+
+    if (!result?.success && result?.error) {
+      window.alert(result.error)
+    }
+
+    return result
+  }
+
+  const handleAddTaskAttachments = async (taskId, files, taskProjectSlug) => {
+    const targetProjectSlug = taskProjectSlug || projectSlug
+    const result = await addProjectTaskAttachments(targetProjectSlug, taskId, files)
+
+    if (!result?.success && result?.error) {
+      window.alert(result.error)
+    }
+
+    return result
+  }
+
   const handleDeleteTask = async (taskId) => {
     const result = await deleteProjectTask(projectSlug, taskId, currentActor)
 
@@ -359,8 +382,6 @@ function ProjectBoard() {
                       {...column}
                       droppableId={column.title}
                       onAddTask={openAddTaskModal}
-                      onAddTaskComment={addProjectTaskComment}
-                      onAddTaskAttachments={addProjectTaskAttachments}
                       onUpdateTask={handleUpdateTask}
                       onDeleteTask={handleDeleteTask}
                       onAddTaskComment={handleAddTaskComment}

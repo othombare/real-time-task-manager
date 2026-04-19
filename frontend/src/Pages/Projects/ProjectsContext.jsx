@@ -25,14 +25,13 @@ import {
   createTask as createTaskApi,
   deleteTask as deleteTaskApi,
   getTasks as getTasksApi,
+  updateTask as updateTaskApi,
 } from "../../utils/taskApi";
 import {
   buildProjectBoardFromTasks,
   buildTaskCreatePayload,
   buildTaskUpdatePayload,
-  getTaskSortOrderBetween,
   groupTasksByProject,
-  mapColumnToApiTaskStatus,
   normalizeApiTask,
   removeTaskFromBoard,
   upsertTaskInBoard,
@@ -40,6 +39,7 @@ import {
 import { useAppSelector } from "../../store/hooks";
 
 const STORAGE_KEY = "taskvue-projects:v2";
+const INITIAL_PROJECT_FETCH_KEYS = new Set();
 
 const readStoredProjects = () => {
   try {
@@ -57,8 +57,6 @@ const readStoredProjects = () => {
 
 const buildProjectKey = (project) =>
   String(project?._id || project?.id || project?.projectCode || project?.joinCode || project?.slug || "");
-
-const getProjectRoomId = (project) => String(project?._id || project?.id || "").trim();
 
 const normalizeComparableValue = (value = "") => String(value).trim().toLowerCase();
 const normalizeProjectCode = (value = "") => String(value).trim().toUpperCase();
@@ -388,7 +386,6 @@ const normalizeProject = (project, currentUser = null, rawTasks = []) => {
 };
 
 const mergeProjectsWithStoredState = (incomingProjects, currentUser = null, tasksByProject = new Map()) => {
-const mergeProjectsWithStoredState = (incomingProjects, currentUser = null, tasksByProject = new Map()) => {
   const storedProjects = readStoredProjects();
   const storedProjectMap = new Map(
     storedProjects.map((project) => [buildProjectKey(project), normalizeProject(project, currentUser)])
@@ -569,9 +566,6 @@ const ProjectsContext = createContext({
   createProjectTask: () => ({ success: false }),
   addProjectTaskComment: () => ({ success: false }),
   addProjectTaskAttachments: () => ({ success: false }),
-  createProjectTask: () => ({ success: false }),
-  addProjectTaskComment: () => ({ success: false }),
-  addProjectTaskAttachments: () => ({ success: false }),
   updateProjectBoard: () => {},
   updateProjectTask: () => {},
   deleteProjectTask: () => ({ success: false }),
@@ -610,23 +604,12 @@ export function ProjectsProvider({ children }) {
         }),
       ]);
 
-      const nextProjects = Array.isArray(projectsResponse?.data?.data?.projects)
-        ? projectsResponse.data.data.projects
-        : Array.isArray(projectsResponse?.data?.data)
-          ? projectsResponse.data.data
-          : Array.isArray(projectsResponse?.data)
-            ? projectsResponse.data
-            : [];
-      const nextTasks = Array.isArray(tasksResponse?.data?.data?.tasks)
-        ? tasksResponse.data.data.tasks
-        : Array.isArray(tasksResponse?.data?.data)
-          ? tasksResponse.data.data
-          : Array.isArray(tasksResponse?.data)
-            ? tasksResponse.data
-            : [];
+      const nextProjects = extractProjectsPayload(projectsResponse);
+      const nextTasks = extractTasksPayload(tasksResponse);
       const tasksByProject = groupTasksByProject(nextTasks);
 
       setProjects(mergeProjectsWithStoredState(nextProjects, currentUser, tasksByProject));
+      setLastSyncedAt(new Date().toISOString());
     } catch (error) {
       if (error?.response?.status === 401) {
         return;
@@ -655,7 +638,7 @@ export function ProjectsProvider({ children }) {
 
     INITIAL_PROJECT_FETCH_KEYS.add(userKey);
     fetchProjects();
-  }, [authInitialized, currentUser, fetchProjects]);
+  }, [authInitialized, currentToken, currentUser, fetchProjects]);
 
   useEffect(() => {
     if (!authInitialized || !currentUser) {
@@ -728,16 +711,6 @@ export function ProjectsProvider({ children }) {
               Object.keys(memberDirectory).length > 0
                 ? memberDirectory
                 : buildMemberDirectory(uniqueMembers),
-            stage: stage || "Planning",
-            owner: owner || backendProject?.createdBy?.name || "Workspace",
-            admin: admin || backendProject?.createdBy?.name || owner || "Workspace",
-            joinCode: backendProject?.projectCode || joinCode || generateJoinCode(title),
-            projectCode: backendProject?.projectCode || joinCode || generateJoinCode(title),
-            members: backendProject?.members || uniqueMembers,
-            memberDirectory:
-              Object.keys(memberDirectory).length > 0
-                ? memberDirectory
-                : buildMemberDirectory(uniqueMembers),
             attachments,
             attachmentItems:
               attachmentItems.length > 0
@@ -745,9 +718,6 @@ export function ProjectsProvider({ children }) {
                 : attachmentFiles.map((fileName, index) => normalizeAttachmentEntry(fileName, index)),
             attachmentFiles,
             board: cloneProjectBoard(projectBoardTemplate),
-          },
-          currentUser
-        );
           },
           currentUser
         );
@@ -911,7 +881,7 @@ export function ProjectsProvider({ children }) {
         };
       }
     },
-    [currentUser, projects]
+    [projects]
   );
 
   const addProjectTaskComment = useCallback(
@@ -1080,7 +1050,7 @@ export function ProjectsProvider({ children }) {
             ? INVALID_PROJECT_CODE_MESSAGE
             : error?.message || INVALID_PROJECT_CODE_MESSAGE,
       }));
-  }, [currentUser, projects]);
+  }, [currentUser, fetchProjects, projects]);
 
   const updateProjectBoard = useCallback((projectSlug, updater) => {
     let wasUpdated = false;
@@ -1293,9 +1263,6 @@ export function ProjectsProvider({ children }) {
       createProjectTask,
       addProjectTaskComment,
       addProjectTaskAttachments,
-      createProjectTask,
-      addProjectTaskComment,
-      addProjectTaskAttachments,
       updateProjectBoard,
       updateProjectTask,
       deleteProjectTask,
@@ -1312,9 +1279,6 @@ export function ProjectsProvider({ children }) {
       removeProject,
       removeProjectMember,
       addProjectAttachments,
-      createProjectTask,
-      addProjectTaskComment,
-      addProjectTaskAttachments,
       createProjectTask,
       addProjectTaskComment,
       addProjectTaskAttachments,

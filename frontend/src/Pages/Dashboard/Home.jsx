@@ -241,17 +241,17 @@ const formatLastSyncedLabel = (value) => {
 
 function Home() {
   const { profile } = useCurrentUser();
-  const { projects, updateProjectBoard, updateProjectTask, lastSyncedAt } = useProjects();
+  const {
+    projects,
+    updateProjectBoard,
+    updateProjectTask,
+    addProjectTaskComment,
+    addProjectTaskAttachments,
+    lastSyncedAt,
+  } = useProjects();
   const personalColumnsStorageKey = getPersonalColumnsStorageKey(profile?._id);
   const firstName = profile?.name?.split(" ")[0] || "there";
   const displayName = profile?.name || "Workspace User";
-  const currentActor = useMemo(
-    () => ({
-      userId: profile?._id || null,
-      name: displayName,
-    }),
-    [displayName, profile?._id]
-  );
   const userInitials = getInitials(displayName || "OJ");
   const greeting = getGreetingByTime();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
@@ -355,7 +355,30 @@ function Home() {
     setIsAddTaskOpen(true);
   };
 
-  const handleUpdateTask = async (taskId, updates, projectSlug) => {
+  const handleAddTaskComment = async (taskId, text, projectSlug) => {
+    if (!projectSlug) {
+      return { success: false, error: "Project not found." };
+    }
+
+    const result = await addProjectTaskComment(projectSlug, taskId, text);
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
+    }
+    return result;
+  };
+
+  const handleAddTaskAttachments = async (taskId, files, projectSlug) => {
+    if (!projectSlug) {
+      return { success: false, error: "Project not found." };
+    }
+
+    const result = await addProjectTaskAttachments(projectSlug, taskId, files);
+    if (!result?.success && result?.error) {
+      window.alert(result.error);
+    }
+    return result;
+  };
+
   const handleUpdateTask = async (taskId, updates, projectSlug) => {
     if (projectSlug) {
       const result = await updateProjectTask(projectSlug, taskId, updates);

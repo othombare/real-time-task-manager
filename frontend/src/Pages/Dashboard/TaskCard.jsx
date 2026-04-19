@@ -109,8 +109,6 @@ export function TaskCard({
   onUpdateTask,
   onAddComment,
   onAddAttachments,
-  onAddComment,
-  onAddAttachments,
   onDeleteTask,
   currentUserName,
   currentUserId,
@@ -164,7 +162,6 @@ export function TaskCard({
     setIsOpen(true)
   }
 
-  const handleAddComment = async () => {
   const handleAddComment = async () => {
     const nextComment = commentDraft.trim()
 
