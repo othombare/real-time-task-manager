@@ -1,5 +1,18 @@
 const TOKEN_KEY = "token";
-const BASE_URL = "http://localhost:3000/api/v1";
+
+const inferApiBaseUrl = () => {
+  if (typeof window === "undefined") {
+    return "http://localhost:3000/api/v1";
+  }
+
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}:3000/api/v1`;
+};
+
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  inferApiBaseUrl();
 
 // Ensure no trailing slash
 const normalizeBaseUrl = (url) => url.replace(/\/+$/, "");
