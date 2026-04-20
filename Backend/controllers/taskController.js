@@ -52,13 +52,65 @@ const normalizeTaskForResponse = (task, req) => {
   }
 
   const taskObject = task.toObject ? task.toObject({ virtuals: true, getters: true }) : task;
+  const normalizedAssignedTo = Array.isArray(taskObject.assignedTo)
+    ? taskObject.assignedTo
+    : taskObject.assignedTo
+      ? [taskObject.assignedTo]
+      : [];
 
   return {
     ...taskObject,
+    assignedTo: normalizedAssignedTo,
     attachments: (taskObject.attachments || []).map((attachment) =>
       buildTaskAttachmentResponse(taskObject._id || task.id, attachment, req)
     ),
   };
+};
+
+const normalizeIdValue = (value) => String(value || '').trim();
+
+const normalizeAssignedToInput = (value) => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return [];
+  }
+
+  const rawValues =
+    Array.isArray(value)
+      ? value
+      : typeof value === 'string' && value.includes(',')
+        ? value.split(',')
+        : [value];
+
+  const normalizedIds = rawValues
+    .map((entry) => normalizeIdValue(entry))
+    .filter(Boolean);
+
+  return Array.from(new Set(normalizedIds));
+};
+
+const getProjectAssignableUserIds = (project) => {
+  const assignableUserIds = new Set();
+
+  if (project?.createdBy) {
+    assignableUserIds.add(project.createdBy.toString());
+  }
+
+  (project?.members || []).forEach((member) => {
+    if (member?.user) {
+      assignableUserIds.add(member.user.toString());
+    }
+  });
+
+  return assignableUserIds;
+};
+
+const findUnassignableUsers = (project, assignedUserIds = []) => {
+  const assignableUserIds = getProjectAssignableUserIds(project);
+  return assignedUserIds.filter((userId) => !assignableUserIds.has(userId));
 };
 
 const isProjectMember = (project, userId) => {
@@ -146,24 +198,18 @@ exports.createTask = catchAsync(async (req, res, next) => {
   }
 
   const project = await ensureProjectExistsAndReadable(projectId, req.user.id);
+  const normalizedAssignedTo = normalizeAssignedToInput(assignedTo) || [];
+  const unassignableUsers = findUnassignableUsers(project, normalizedAssignedTo);
 
-  if (
-    assignedTo &&
-    !(
-      project.createdBy?.toString() === assignedTo ||
-      (project.members || []).some(
-        (member) => member.user && member.user.toString() === assignedTo
-      )
-    )
-  ) {
-    return next(new AppError('Assigned user must belong to the project.', 400));
+  if (unassignableUsers.length > 0) {
+    return next(new AppError('Assigned users must belong to the project.', 400));
   }
 
   const task = await Task.create({
     title: String(title).trim(),
     description,
     project: project._id,
-    assignedTo: assignedTo || undefined,
+    assignedTo: normalizedAssignedTo,
     createdBy: req.user.id,
     status,
     sortOrder: Number.isFinite(Number(sortOrder)) ? Number(sortOrder) : Date.now(),
@@ -205,8 +251,12 @@ exports.getAllTasks = catchAsync(async (req, res, next) => {
     filter.priority = priority;
   }
 
-  if (assignedTo) {
-    filter.assignedTo = assignedTo;
+  const normalizedAssignedToFilter = normalizeAssignedToInput(assignedTo);
+  if (normalizedAssignedToFilter && normalizedAssignedToFilter.length > 0) {
+    filter.assignedTo =
+      normalizedAssignedToFilter.length === 1
+        ? normalizedAssignedToFilter[0]
+        : { $in: normalizedAssignedToFilter };
   }
 
   const tasks = await populateTaskQuery(Task.find(filter).sort({ createdAt: -1 }));
@@ -265,20 +315,15 @@ exports.updateTask = catchAsync(async (req, res, next) => {
     return next(new AppError('Task title cannot be empty.', 400));
   }
 
-  if (updates.assignedTo) {
-    const assignedUserBelongsToProject =
-      project.createdBy?.toString() === updates.assignedTo ||
-      (project.members || []).some(
-        (member) => member.user && member.user.toString() === updates.assignedTo
-      );
+  if (Object.prototype.hasOwnProperty.call(updates, 'assignedTo')) {
+    const normalizedAssignedTo = normalizeAssignedToInput(updates.assignedTo) || [];
+    const unassignableUsers = findUnassignableUsers(project, normalizedAssignedTo);
 
-    if (!assignedUserBelongsToProject) {
-      return next(new AppError('Assigned user must belong to the project.', 400));
+    if (unassignableUsers.length > 0) {
+      return next(new AppError('Assigned users must belong to the project.', 400));
     }
-  }
 
-  if (updates.assignedTo === null || updates.assignedTo === '') {
-    updates.assignedTo = undefined;
+    updates.assignedTo = normalizedAssignedTo;
   }
 
   if (updates.status !== undefined && updates.sortOrder === undefined) {

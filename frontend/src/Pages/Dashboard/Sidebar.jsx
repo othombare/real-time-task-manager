@@ -13,7 +13,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { useProjects } from "../Projects/useProjects";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { getInitials, hasProjectAccess } from "../Projects/projectData";
+import { hasProjectAccess } from "../Projects/projectData";
 
 const navItems = [
   { icon: LayoutDashboardIcon, label: "Dashboard", id: "dashboard", path: "/dashboard" },
@@ -33,7 +33,7 @@ export function Sidebar({ collapsed, setCollapsed }) {
   const { profile } = useCurrentUser();
   const displayName = profile?.name || "Workspace User";
   const visibleProjects = projects.filter((project) =>
-    hasProjectAccess(project, getInitials(displayName), displayName)
+    hasProjectAccess(project, profile?._id, displayName)
   );
 
   return (

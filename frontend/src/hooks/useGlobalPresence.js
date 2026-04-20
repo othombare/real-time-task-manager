@@ -52,13 +52,14 @@ const useGlobalPresence = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    if (!userId) {
+    if (!userId || !token) {
       return;
     }
 
     // Re-announce on reconnect so server tracks each tab/device socket correctly.
     const announceOnline = () => {
       socket.emit("userOnline", { userId });
+      dispatch(fetchPresenceSnapshot());
     };
 
     socket.on("connect", announceOnline);
@@ -70,7 +71,7 @@ const useGlobalPresence = () => {
     return () => {
       socket.off("connect", announceOnline);
     };
-  }, [userId]);
+  }, [dispatch, token, userId]);
 };
 
 export default useGlobalPresence;

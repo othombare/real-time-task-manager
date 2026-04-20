@@ -99,6 +99,7 @@ export function TaskCard({
   assignee,
   assigneeNames = [],
   assignedToUserId,
+  assignedToUserIds = [],
   createdBy,
   createdByUserId,
   dueDate,
@@ -155,6 +156,13 @@ export function TaskCard({
   const attachmentCount = Math.max(Number(attachments) || 0, normalizedAttachmentItems.length)
   const commentTexts = normalizedCommentItems.map((item) => item.text).filter(Boolean)
   const attachmentNames = normalizedAttachmentItems.map((item) => item.name).filter(Boolean)
+  const resolvedAssignedUserIds =
+    Array.isArray(assignedToUserIds) && assignedToUserIds.length > 0
+      ? assignedToUserIds.map((entry) => String(entry || "").trim()).filter(Boolean)
+      : assignedToUserId
+        ? [String(assignedToUserId).trim()]
+        : []
+  const primaryAssigneeUserId = resolvedAssignedUserIds[0] || null
   const canDeleteTask =
     (Boolean(currentUserId) &&
       Boolean(createdByUserId) &&
@@ -349,9 +357,9 @@ export function TaskCard({
                   className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-primary text-[10px] font-bold text-primary-foreground transition-transform hover:-translate-y-1 hover:z-10"
                 >
                   {initial}
-                  {index === 0 && assignedToUserId && (
+                  {resolvedAssignedUserIds[index] && (
                     <UserStatus
-                      userId={assignedToUserId}
+                      userId={resolvedAssignedUserIds[index]}
                       className="absolute -bottom-1 -right-1"
                       indicatorClassName="h-2.5 w-2.5"
                     />
@@ -377,7 +385,7 @@ export function TaskCard({
           <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <UserIcon size={12} className="text-primary/70" />
             Assigned to {resolvedAssigneeName}
-            {assignedToUserId && <UserStatus userId={assignedToUserId} />}
+            {primaryAssigneeUserId && <UserStatus userId={primaryAssigneeUserId} />}
           </p>
         )}
 

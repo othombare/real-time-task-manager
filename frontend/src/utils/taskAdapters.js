@@ -66,6 +66,68 @@ const formatAttachmentSize = (value) => {
   return `${(numericSize / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+const normalizeAssignedToUsers = (assignedToValue) => {
+  const assignedEntries = Array.isArray(assignedToValue)
+    ? assignedToValue
+    : assignedToValue
+      ? [assignedToValue]
+      : [];
+
+  return assignedEntries
+    .map((assignedUser) => {
+      if (assignedUser && typeof assignedUser === "object") {
+        const userId = String(assignedUser?._id || assignedUser?.id || "").trim();
+
+        return {
+          userId: userId || null,
+          name: assignedUser?.name || null,
+        };
+      }
+
+      const userId = String(assignedUser || "").trim();
+
+      if (!userId) {
+        return null;
+      }
+
+      return {
+        userId,
+        name: null,
+      };
+    })
+    .filter(Boolean);
+};
+
+const getAssignmentBadgeLabel = (value) => {
+  const label = String(value || "").trim();
+
+  if (!label) {
+    return "";
+  }
+
+  const initials = getInitials(label);
+
+  if (initials) {
+    return initials;
+  }
+
+  return label.slice(0, 2).toUpperCase();
+};
+
+const normalizeAssignedToPayload = (value) => {
+  if (value === null || value === undefined) {
+    return [];
+  }
+
+  const rawValues = Array.isArray(value) ? value : [value];
+
+  const normalizedUserIds = rawValues
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(normalizedUserIds));
+};
+
 const normalizeAttachmentEntry = (attachment, index = 0) => {
   const fileName =
     attachment?.fileName ||
@@ -169,11 +231,27 @@ export const normalizeApiTask = (task, project = null) => {
   const projectTitle = project?.title || resolvedProject?.title || "Workspace";
   const projectSlug =
     project?.slug || createProjectSlug(projectTitle) || `project-${task?._id || task?.id || Date.now()}`;
-  const assignedUser =
-    task?.assignedTo && typeof task.assignedTo === "object"
-      ? task.assignedTo
-      : null;
-  const assignedUserName = assignedUser?.name || null;
+  const projectMemberLookup = new Map(
+    (project?.memberProfiles || [])
+      .map((member) => {
+        const userId = String(member?.userId || "").trim();
+        return userId ? [userId, member?.name || null] : null;
+      })
+      .filter(Boolean)
+  );
+  const assignedUsers = normalizeAssignedToUsers(task?.assignedTo).map((assignedUser) => ({
+    ...assignedUser,
+    name:
+      assignedUser?.name ||
+      (assignedUser?.userId ? projectMemberLookup.get(assignedUser.userId) : null) ||
+      null,
+  }));
+  const assignedUserIds = assignedUsers
+    .map((assignedUser) => String(assignedUser?.userId || "").trim())
+    .filter(Boolean);
+  const assignedUserNames = assignedUsers
+    .map((assignedUser) => assignedUser?.name || assignedUser?.userId || null)
+    .filter(Boolean);
   const attachmentItems = Array.isArray(task?.attachments)
     ? task.attachments.map((attachment, index) => normalizeAttachmentEntry(attachment, index))
     : [];
@@ -191,9 +269,10 @@ export const normalizeApiTask = (task, project = null) => {
     priority: priorityLabelMap[normalizedPriority] || "Medium",
     status: mapApiTaskStatusToColumn(task?.status),
     apiStatus: task?.status || "todo",
-    assignee: assignedUserName ? [getInitials(assignedUserName)] : [],
-    assigneeNames: assignedUserName ? [assignedUserName] : [],
-    assignedToUserId: assignedUser?._id || (typeof task?.assignedTo === "string" ? task.assignedTo : null),
+    assignee: assignedUserNames.map(getAssignmentBadgeLabel).filter(Boolean),
+    assigneeNames: assignedUserNames,
+    assignedToUserId: assignedUserIds[0] || null,
+    assignedToUserIds: assignedUserIds,
     createdBy: task?.createdBy?.name || project?.owner || "Workspace",
     createdByUserId: task?.createdBy?._id || null,
     dueDate: formatTaskDueDate(task?.dueDate),
@@ -218,13 +297,13 @@ export const buildTaskDescription = (description = "", notes = "") =>
     .join("\n\n");
 
 export const buildTaskCreatePayload = (task = {}, projectId) => {
-  const assignedTo = Array.isArray(task?.assignee) ? task.assignee[0] : task?.assignee;
+  const assignedTo = normalizeAssignedToPayload(task?.assignee);
 
   return {
     title: String(task?.title || "").trim(),
     description: buildTaskDescription(task?.description, task?.notes),
     project: projectId,
-    assignedTo: assignedTo || undefined,
+    assignedTo,
     status: mapColumnToApiTaskStatus(task?.status),
     priority: String(task?.priority || "Medium").toLowerCase(),
     dueDate: task?.dueDateRaw || task?.dueDate || undefined,
@@ -244,9 +323,9 @@ export const buildTaskUpdatePayload = (updates = {}) => {
   }
 
   if (updates.assignedTo !== undefined) {
-    payload.assignedTo = updates.assignedTo;
+    payload.assignedTo = normalizeAssignedToPayload(updates.assignedTo);
   } else if (updates.assignee !== undefined) {
-    payload.assignedTo = Array.isArray(updates.assignee) ? updates.assignee[0] || "" : updates.assignee;
+    payload.assignedTo = normalizeAssignedToPayload(updates.assignee);
   }
 
   if (updates.status !== undefined) {
@@ -365,9 +444,22 @@ export const groupTasksByProject = (tasks = []) =>
   }, new Map());
 
 export const isTaskAssignedToUser = (task, { userId = null, initials = "" } = {}) =>
-  Boolean(
-    (userId && task?.assignedToUserId && userId === task.assignedToUserId) ||
-      (initials && Array.isArray(task?.assignee) && task.assignee.includes(initials))
-  );
+  {
+    const normalizedUserId = String(userId || "").trim();
+    const normalizedInitials = String(initials || "").trim().toUpperCase();
+    const assignedUserIds = Array.isArray(task?.assignedToUserIds)
+      ? task.assignedToUserIds.map((entry) => String(entry || "").trim()).filter(Boolean)
+      : task?.assignedToUserId
+        ? [String(task.assignedToUserId).trim()]
+        : [];
+    const assignedInitials = Array.isArray(task?.assignee)
+      ? task.assignee.map((entry) => String(entry || "").trim().toUpperCase()).filter(Boolean)
+      : [];
+
+    return Boolean(
+      (normalizedUserId && assignedUserIds.includes(normalizedUserId)) ||
+        (normalizedInitials && assignedInitials.includes(normalizedInitials))
+    );
+  };
 
 export const getTaskOrderValue = getTaskComparableOrder;

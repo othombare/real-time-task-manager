@@ -11,7 +11,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "../Dashboard/DashboardLayout";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
-import { getInitials, hasProjectAccess } from "../Projects/projectData";
+import { hasProjectAccess } from "../Projects/projectData";
 import { useProjects } from "../Projects/useProjects";
 import useProjectSocketRoom from "../../hooks/useProjectSocketRoom";
 
@@ -59,8 +59,7 @@ function Attachments() {
   const { getProjectBySlug, addProjectAttachments, deleteProjectAttachment, fetchProjects } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
-  const currentMemberId = getInitials(displayName);
-  const canAccessProject = Boolean(project && hasProjectAccess(project, currentMemberId, displayName));
+  const canAccessProject = Boolean(project && hasProjectAccess(project, profile?._id, displayName));
   const projectRoomId = canAccessProject ? project._id || project.id : null;
   const [feedback, setFeedback] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);

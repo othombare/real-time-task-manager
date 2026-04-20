@@ -60,6 +60,7 @@ const buildProjectKey = (project) =>
 
 const normalizeComparableValue = (value = "") => String(value).trim().toLowerCase();
 const normalizeProjectCode = (value = "") => String(value).trim().toUpperCase();
+const isLikelyObjectId = (value = "") => /^[a-fA-F0-9]{24}$/.test(String(value || "").trim());
 
 const normalizeAttachmentEntry = (attachment, index = 0) => {
   if (typeof attachment === "string") {
@@ -106,9 +107,12 @@ const getMemberIdentity = (member) => {
   const user = member?.user ?? member;
 
   if (typeof user === "string") {
-    const label = user;
+    const normalizedId = user.trim();
+    const label = member?.name || member?.email || normalizedId;
+
     return {
-      id: getInitials(label) || label.slice(0, 2).toUpperCase(),
+      id: normalizedId,
+      userId: isLikelyObjectId(normalizedId) ? normalizedId : null,
       label,
     };
   }
@@ -119,8 +123,14 @@ const getMemberIdentity = (member) => {
     return null;
   }
 
+  const normalizedUserId = String(
+    user?._id || user?.id || member?.userId || member?._id || ""
+  ).trim();
+  const resolvedUserId = normalizedUserId || null;
+
   return {
-    id: getInitials(label) || String(user?._id || "MB").slice(0, 2).toUpperCase(),
+    id: resolvedUserId || getInitials(label) || String(user?._id || "MB").slice(0, 2).toUpperCase(),
+    userId: resolvedUserId,
     label,
   };
 };
@@ -153,7 +163,11 @@ const normalizeMemberProfile = (memberProfile = {}, projectTitle = "this project
 
   return {
     id: memberProfile.id,
-    userId: pickMemberValue(memberProfile.userId, memberProfile._id),
+    userId: pickMemberValue(
+      memberProfile.userId,
+      memberProfile._id,
+      isLikelyObjectId(memberProfile.id) ? memberProfile.id : null
+    ),
     name: fallbackName,
     email: pickPreferredMemberField(memberProfile.email, "No email available"),
     role: pickPreferredMemberField(memberProfile.role, "Project Member"),
@@ -299,11 +313,11 @@ const normalizeProject = (project, currentUser = null, rawTasks = []) => {
         .map(getMemberIdentity)
         .filter((member) => Boolean(member?.id && member?.label))
     : [];
-  const members = memberEntries.map((member) => member.id);
+  const members = memberEntries.map((member) => member.userId || member.id);
   const memberDirectory = memberEntries.reduce(
     (directory, member) => ({
       ...directory,
-      [member.id]: member.label,
+      [member.userId || member.id]: member.label,
     }),
     {}
   );
@@ -328,12 +342,19 @@ const normalizeProject = (project, currentUser = null, rawTasks = []) => {
     ? project.members.map((member) => {
         const user = member?.user ?? member;
         const memberIdentity = getMemberIdentity(member);
+        if (!memberIdentity) {
+          return null;
+        }
+        const resolvedUserId =
+          memberIdentity.userId ||
+          (typeof user === "string" && isLikelyObjectId(user) ? String(user).trim() : null);
+        const profileId = resolvedUserId || memberIdentity.id;
 
         return {
-          id: memberIdentity.id,
-          userId: user?._id || null,
+          id: profileId,
+          userId: resolvedUserId,
           name: user?.name || memberIdentity.label,
-          email: user?.email || `${memberIdentity.id.toLowerCase()}@taskvue.app`,
+          email: user?.email || `${String(profileId || memberIdentity.id).toLowerCase()}@taskvue.app`,
           role: user?.role || (member?.role === "admin" ? "Admin" : "Project Member"),
           location: user?.location || "Location not added",
           githubProfile: user?.githubProfile || "",
@@ -343,7 +364,7 @@ const normalizeProject = (project, currentUser = null, rawTasks = []) => {
             `${user?.name || memberIdentity.label} contributes to ${title} and helps move work across planning, delivery, and review.`,
           memberRole: member?.role || "member",
         };
-      })
+      }).filter(Boolean)
     : Array.isArray(project?.memberProfiles)
       ? project.memberProfiles
       : [];

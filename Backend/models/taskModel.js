@@ -14,11 +14,13 @@ const taskSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    assignedTo: {
-      type: mongoose.Types.ObjectId,
-      ref: "User",
-      index: true,
-    },
+    assignedTo: [
+      {
+        type: mongoose.Types.ObjectId,
+        ref: "User",
+        index: true,
+      },
+    ],
     createdBy: {
       type: mongoose.Types.ObjectId,
       ref: "User",

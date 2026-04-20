@@ -58,11 +58,10 @@ function Projects() {
   const [isJoining, setIsJoining] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState(null);
   const displayName = profile?.name || "Workspace User";
-  const memberId = getInitials(displayName);
 
   const visibleProjects = useMemo(
-    () => projects.filter((project) => hasProjectAccess(project, memberId, displayName)),
-    [displayName, memberId, projects]
+    () => projects.filter((project) => hasProjectAccess(project, profile?._id, displayName)),
+    [displayName, profile?._id, projects]
   );
   const completedProjects = useMemo(
     () => visibleProjects.filter((project) => isProjectCompleted(project)),

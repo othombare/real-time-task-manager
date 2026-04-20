@@ -17,10 +17,8 @@ import DashboardLayout from "../Dashboard/DashboardLayout"
 import { KanbanColumn } from "../Dashboard/KanbanColumn"
 import {
   cloneProjectBoard,
-  getInitials,
   hasProjectAccess,
   projectBoardTemplate,
-  resolveMemberLabel,
 } from "./projectData"
 import { useProjects } from "./useProjects"
 import { useCurrentUser } from "../../hooks/useCurrentUser"
@@ -41,7 +39,6 @@ function ProjectBoard() {
   } = useProjects()
   const project = getProjectBySlug(projectSlug)
   const displayName = profile?.name || "Workspace User"
-  const currentMemberId = getInitials(displayName)
   const currentActor = useMemo(
     () => ({
       userId: profile?._id || null,
@@ -104,11 +101,26 @@ function ProjectBoard() {
   }
 
   const assigneeOptions = useMemo(
-    () =>
-      (project?.members ?? []).map((member) => ({
-        value: member,
-        label: resolveMemberLabel(member, project?.memberDirectory),
-      })),
+    () => {
+      const seenUserIds = new Set()
+
+      return (project?.memberProfiles ?? [])
+        .map((member) => {
+          const userId = String(member?.userId || "").trim()
+          const label = String(member?.name || "").trim()
+
+          if (!userId || !label || seenUserIds.has(userId)) {
+            return null
+          }
+
+          seenUserIds.add(userId)
+          return {
+            value: userId,
+            label,
+          }
+        })
+        .filter(Boolean)
+    },
     [project]
   )
 
@@ -228,7 +240,7 @@ function ProjectBoard() {
     return result
   }
 
-  if (!project || !hasProjectAccess(project, currentMemberId, displayName)) {
+  if (!project || !hasProjectAccess(project, profile?._id, displayName)) {
     return (
       <DashboardLayout>
         <div className="rounded-3xl border border-border bg-card p-8 shadow-sm">

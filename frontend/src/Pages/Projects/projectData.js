@@ -62,17 +62,58 @@ export const buildMemberDirectory = (members = []) =>
 export const resolveMemberLabel = (memberId, memberDirectory = {}) =>
   memberDirectory[memberId] || memberNameMap[memberId] || memberId;
 
-export const hasProjectAccess = (project, memberId, displayName) => {
+const normalizeComparableValue = (value = "") => String(value || "").trim().toLowerCase();
+const normalizeMemberEntryId = (member) => {
+  if (!member) {
+    return "";
+  }
+
+  if (typeof member === "string") {
+    return member.trim();
+  }
+
+  if (typeof member === "object") {
+    if (typeof member.user === "string") {
+      return member.user.trim();
+    }
+
+    if (member.user && typeof member.user === "object") {
+      return String(member.user?._id || member.user?.id || "").trim();
+    }
+
+    return String(member._id || member.id || "").trim();
+  }
+
+  return "";
+};
+
+export const hasProjectAccess = (project, userId, displayName) => {
   if (!project) {
     return false;
   }
 
-  const normalizedName = displayName?.trim().toLowerCase();
-  const normalizedOwner = project.owner?.trim().toLowerCase();
-  const normalizedAdmin = project.admin?.trim().toLowerCase();
+  const normalizedUserId = String(userId || "").trim();
+  const normalizedName = normalizeComparableValue(displayName);
+  const normalizedOwner = normalizeComparableValue(project.owner);
+  const normalizedAdmin = normalizeComparableValue(project.admin);
+  const displayInitials = getInitials(displayName || "");
+  const projectMemberIds = Array.isArray(project.members)
+    ? project.members.map((member) => normalizeMemberEntryId(member)).filter(Boolean)
+    : [];
+  const memberProfileIds = Array.isArray(project.memberProfiles)
+    ? project.memberProfiles
+        .map((memberProfile) =>
+          String(memberProfile?.userId || memberProfile?._id || memberProfile?.id || "").trim()
+        )
+        .filter(Boolean)
+    : [];
 
   return (
-    Boolean(memberId && project.members.includes(memberId)) ||
+    Boolean(
+      normalizedUserId &&
+        (projectMemberIds.includes(normalizedUserId) || memberProfileIds.includes(normalizedUserId))
+    ) ||
+    Boolean(displayInitials && projectMemberIds.includes(displayInitials)) ||
     Boolean(normalizedName && normalizedName === normalizedOwner) ||
     Boolean(normalizedName && normalizedName === normalizedAdmin)
   );

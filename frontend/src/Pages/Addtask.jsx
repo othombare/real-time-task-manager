@@ -11,8 +11,20 @@ const initialFormState = {
   projectName: "",
   priority: "Medium",
   status: "To Do",
-  assignee: "",
+  assignees: [],
   dueDate: "",
+};
+
+const normalizeAssigneeList = (value) => {
+  const rawValues = Array.isArray(value) ? value : value ? [value] : [];
+
+  return Array.from(
+    new Set(
+      rawValues
+        .map((entry) => String(entry || "").trim())
+        .filter(Boolean)
+    )
+  );
 };
 
 function Addtask({
@@ -41,10 +53,17 @@ function Addtask({
       return;
     }
 
+    const defaultAssignees = normalizeAssigneeList(defaultAssignee);
+
     setForm((current) => ({
       ...current,
       status: statuses.includes(initialStatus) ? initialStatus : statuses[0] || "To Do",
-      assignee: defaultAssignee || current.assignee,
+      assignees:
+        defaultAssignees.length > 0
+          ? defaultAssignees
+          : Array.isArray(current.assignees)
+            ? current.assignees
+            : [],
     }));
   }, [defaultAssignee, initialStatus, isOpen, statuses]);
 
@@ -55,6 +74,26 @@ function Addtask({
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleAssigneeToggle = (value) => {
+    const normalizedValue = String(value || "").trim();
+
+    if (!normalizedValue) {
+      return;
+    }
+
+    setForm((current) => {
+      const currentAssignees = Array.isArray(current.assignees) ? current.assignees : [];
+      const isAlreadySelected = currentAssignees.includes(normalizedValue);
+
+      return {
+        ...current,
+        assignees: isAlreadySelected
+          ? currentAssignees.filter((entry) => entry !== normalizedValue)
+          : [...currentAssignees, normalizedValue],
+      };
+    });
   };
 
   const handleAttachmentChange = (event) => {
@@ -75,9 +114,11 @@ function Addtask({
   };
 
   const resetForm = () => {
+    const defaultAssignees = normalizeAssigneeList(defaultAssignee);
+
     setForm({
       ...initialFormState,
-      assignee: defaultAssignee,
+      assignees: defaultAssignees,
       status: statuses.includes(initialStatus) ? initialStatus : statuses[0] || "To Do",
     });
     setSelectedFiles([]);
@@ -95,15 +136,21 @@ function Addtask({
     event.preventDefault();
 
     const trimmedTitle = form.title.trim();
-    const trimmedAssignee = (defaultAssignee || form.assignee).trim();
+    const selectedAssignees = hideAssigneeField
+      ? normalizeAssigneeList(defaultAssignee)
+      : normalizeAssigneeList(form.assignees);
 
-    if (!trimmedTitle || !trimmedAssignee || !form.dueDate) {
+    if (!trimmedTitle || selectedAssignees.length === 0 || !form.dueDate) {
       return;
     }
 
-    const selectedAssigneeOption = assigneeOptions.find(
-      (option) => option.value === trimmedAssignee
+    const selectedAssigneeOptions = assigneeOptions.filter((option) =>
+      selectedAssignees.includes(option.value)
     );
+    const selectedAssigneeNames =
+      selectedAssigneeOptions.length > 0
+        ? selectedAssigneeOptions.map((option) => option.label)
+        : selectedAssignees;
 
     const result = await onSubmit({
       title: trimmedTitle,
@@ -112,8 +159,8 @@ function Addtask({
       projectName: form.projectName.trim(),
       priority: form.priority,
       status: form.status,
-      assignee: [trimmedAssignee],
-      assigneeNames: selectedAssigneeOption ? [selectedAssigneeOption.label] : [trimmedAssignee],
+      assignee: selectedAssignees,
+      assigneeNames: selectedAssigneeNames,
       dueDateRaw: form.dueDate,
       dueDate: new Date(form.dueDate).toLocaleDateString("en-US", {
         month: "short",
@@ -240,26 +287,41 @@ function Addtask({
           <div className={`grid gap-4 ${hideAssigneeField ? "" : "md:grid-cols-2"}`}>
             {!hideAssigneeField && (
               <div className="space-y-2">
-                <label className="text-sm font-semibold" htmlFor="task-assignee">
-                  Assignee
+                <label className="text-sm font-semibold" htmlFor="task-assignees">
+                  Assignees
                 </label>
-                <select
-                  id="task-assignee"
-                  name="assignee"
-                  value={form.assignee}
-                  onChange={handleChange}
-                  className="h-12 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                  required
+                <div
+                  id="task-assignees"
+                  className="max-h-40 space-y-2 overflow-y-auto rounded-2xl border border-input bg-background px-3 py-3 text-sm"
                 >
-                  <option value="" disabled>
-                    Select team member
-                  </option>
-                  {assigneeOptions.map((assignee) => (
-                    <option key={assignee.value} value={assignee.value}>
-                      {assignee.label}
-                    </option>
-                  ))}
-                </select>
+                  {assigneeOptions.length > 0 ? (
+                    assigneeOptions.map((assignee) => {
+                      const isSelected = form.assignees.includes(assignee.value);
+
+                      return (
+                        <label
+                          key={assignee.value}
+                          className="flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 transition hover:bg-muted/70"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleAssigneeToggle(assignee.value)}
+                            className="h-4 w-4 rounded border-input text-primary focus:ring-primary/30"
+                          />
+                          <span>{assignee.label}</span>
+                        </label>
+                      );
+                    })
+                  ) : (
+                    <p className="px-2 py-1 text-xs text-muted-foreground">
+                      No team members found for this project yet.
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {form.assignees.length} member{form.assignees.length === 1 ? "" : "s"} selected
+                </p>
               </div>
             )}
 

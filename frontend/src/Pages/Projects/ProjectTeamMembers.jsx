@@ -29,10 +29,15 @@ const normalizeProfileLink = (value = "") => {
 };
 
 const normalizeComparableValue = (value = "") => String(value || "").trim().toLowerCase();
+const isLikelyObjectId = (value = "") => /^[a-fA-F0-9]{24}$/.test(String(value || "").trim());
 
 const resolvePresenceUserId = (member, profile) => {
   if (member?.userId) {
     return member.userId;
+  }
+
+  if (isLikelyObjectId(member?.id)) {
+    return String(member.id).trim();
   }
 
   if (!profile?._id) {
@@ -58,6 +63,9 @@ const resolvePresenceUserId = (member, profile) => {
   return null;
 };
 
+const getMemberSelectionKey = (member) =>
+  String(member?.userId || member?.id || "").trim();
+
 function ProjectTeamMembers() {
   const navigate = useNavigate();
   const { projectSlug } = useParams();
@@ -65,8 +73,7 @@ function ProjectTeamMembers() {
   const { getProjectBySlug, removeProjectMember } = useProjects();
   const project = getProjectBySlug(projectSlug);
   const displayName = profile?.name || "Workspace User";
-  const currentMemberId = getInitials(displayName);
-  const canAccessProject = Boolean(project && hasProjectAccess(project, currentMemberId, displayName));
+  const canAccessProject = Boolean(project && hasProjectAccess(project, profile?._id, displayName));
   const projectRoomId = canAccessProject ? project._id || project.id : null;
   const [memberFeedback, setMemberFeedback] = useState("");
   const [selectedMemberId, setSelectedMemberId] = useState(null);
@@ -127,7 +134,10 @@ function ProjectTeamMembers() {
   }, [project]);
 
   const selectedMember = useMemo(
-    () => memberProfiles.find((member) => member.id === selectedMemberId) || null,
+    () =>
+      memberProfiles.find(
+        (member) => getMemberSelectionKey(member) === String(selectedMemberId || "").trim()
+      ) || null,
     [memberProfiles, selectedMemberId]
   );
 
@@ -247,31 +257,35 @@ function ProjectTeamMembers() {
               </div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                {memberProfiles.map((member) => (
-                  <button
-                    key={member.id}
-                    type="button"
-                    onClick={() => setSelectedMemberId(member.id)}
-                    className={`flex items-center gap-3 rounded-3xl border px-4 py-4 text-left transition ${
-                      selectedMember?.id === member.id
-                        ? "border-primary bg-primary/5 shadow-sm"
-                        : "border-border bg-muted/20 hover:border-primary/30 hover:bg-muted/40"
-                    }`}
-                  >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                      {member.id}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold">{member.name}</p>
-                        <UserStatus userId={resolvePresenceUserId(member, profile)} />
+                {memberProfiles.map((member) => {
+                  const memberSelectionKey = getMemberSelectionKey(member);
+
+                  return (
+                    <button
+                      key={memberSelectionKey}
+                      type="button"
+                      onClick={() => setSelectedMemberId(memberSelectionKey)}
+                      className={`flex items-center gap-3 rounded-3xl border px-4 py-4 text-left transition ${
+                        getMemberSelectionKey(selectedMember) === memberSelectionKey
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-border bg-muted/20 hover:border-primary/30 hover:bg-muted/40"
+                      }`}
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                        {getInitials(member.name || member.id || "PM")}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {member.id === currentMemberId ? "You" : member.role}
-                      </p>
-                    </div>
-                  </button>
-                ))}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold">{member.name}</p>
+                          <UserStatus userId={resolvePresenceUserId(member, profile)} />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {member.userId && profile?._id && member.userId === profile._id ? "You" : member.role}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -280,7 +294,7 @@ function ProjectTeamMembers() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-base font-bold text-primary-foreground">
-                      {selectedMember.id}
+                      {getInitials(selectedMember.name || selectedMember.id || "PM")}
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold">{selectedMember.name}</h3>

@@ -269,8 +269,8 @@ function Home() {
   }, [personalColumns, personalColumnsStorageKey]);
 
   const visibleProjects = useMemo(
-    () => projects.filter((project) => hasProjectAccess(project, userInitials, displayName)),
-    [displayName, projects, userInitials]
+    () => projects.filter((project) => hasProjectAccess(project, profile?._id, displayName)),
+    [displayName, profile?._id, projects]
   );
   const dashboardBoard = useMemo(
     () =>
