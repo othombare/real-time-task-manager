@@ -387,7 +387,7 @@ function ProjectBoard() {
               </div>
 
               <DragDropContext onDragEnd={handleDragEnd}>
-                <div className="grid gap-5 xl:grid-cols-4">
+                <div className="grid gap-5 xl:grid-cols-3 2xl:grid-cols-4">
                   {boardColumns.map((column) => (
                     <KanbanColumn
                       key={column.title}

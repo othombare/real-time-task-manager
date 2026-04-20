@@ -19,7 +19,7 @@ export function KanbanColumn({
   currentUserId,
 }) {
   return (
-    <div className="flex min-w-[300px] flex-1 flex-col gap-4 kanban-column">
+    <div className="flex min-w-[340px] flex-1 flex-col gap-4 kanban-column">
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2.5">
           <div className={cn("h-6 w-1.5 rounded-full", color)} />
