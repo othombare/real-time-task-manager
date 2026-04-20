@@ -156,15 +156,8 @@ function Notifications() {
               </ul>
             </div>
 
-            <div className="rounded-3xl border border-primary/20 bg-primary/5 p-5 shadow-sm">
-              <div className="flex items-center gap-3 text-primary">
-                <SparklesIcon size={18} />
-                <h3 className="font-semibold">Quick Tip</h3>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                This page now stays focused on assigned tasks only, so it is easier to spot the work that belongs to you.
-              </p>
-            </div>
+            
+           
           </aside>
         </section>
       </div>
