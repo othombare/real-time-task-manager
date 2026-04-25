@@ -108,34 +108,7 @@ function Settings() {
             ))}
           </div>
 
-          <aside className="space-y-4">
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="rounded-2xl bg-emerald-500/10 p-2 text-emerald-600">
-                  <ShieldCheckIcon size={18} />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Recommended</h3>
-                  <p className="text-xs text-muted-foreground">A sensible next setup list.</p>
-                </div>
-              </div>
-              <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
-                <li>Connect your account profile to real user data.</li>
-                <li>Store workspace preferences per user session.</li>
-                <li>Prepare role-based settings visibility.</li>
-              </ul>
-            </div>
-
-            <div className="rounded-3xl border border-primary/20 bg-primary/5 p-5 shadow-sm">
-              <div className="flex items-center gap-3 text-primary">
-                <SlidersHorizontalIcon size={18} />
-                <h3 className="font-semibold">Design Note</h3>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                This screen is intentionally calm and structured so it scales well once forms are added.
-              </p>
-            </div>
-          </aside>
+         
         </section>
       </div>
     </DashboardLayout>
